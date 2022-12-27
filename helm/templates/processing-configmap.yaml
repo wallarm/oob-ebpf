@@ -1,0 +1,170 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "processing.fullname" . }}
+  annotations:
+    {{- include "wallarm-oob.annotations" . | nindent 4 }}
+    {{- with .Values.processing.extraAnnotations }}
+    {{- . | toYaml | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "processing.labels" . | nindent 4 }}
+data:
+  crontab: |
+    ### Processing service crontab
+    ###
+    {{- range $k, $v := .Values.processing.cron.config }}
+    # {{ $k }}
+    {{ $v.schedule }} timeout {{ $v.timeout }} {{ $v.command }}
+    {{- end }}
+
+  nginx.conf: |-
+    worker_processes auto;
+
+    pid /tmp/nginx/nginx.pid;
+
+    load_module /etc/nginx/modules/ngx_http_wallarm_module.so;
+    load_module /etc/nginx/modules/ngx_http_echo_module.so;
+
+    events {
+        worker_connections 4096;
+    }
+
+    http {
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        keepalive_timeout 65;
+        types_hash_max_size 2048;
+        server_tokens off;
+
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+
+        # SSL Settings
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_prefer_server_ciphers on;
+
+        # Logging Settings
+        access_log /var/log/nginx/access.log;
+        error_log /var/log/nginx/error.log;
+
+        # Gzip Settings
+        gzip on;
+
+        # Wallarm node configuration
+        wallarm_mode monitoring;
+        wallarm_mode_allow_override off;
+        wallarm_parse_response off;
+        wallarm_parse_websocket off;
+        wallarm_process_time_limit 2500;
+        wallarm_process_time_limit_block attack;
+
+        upstream tarantool {
+          server {{ template "aggregation.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.aggregation.service.port }} max_fails=0 fail_timeout=0 max_conns=16;
+          keepalive 16;
+          keepalive_requests 100;
+        }
+        wallarm_tarantool_upstream tarantool;
+
+        # Real IP configuration
+        # https://docs.aws.amazon.com/elasticloadbalancing/latest/application/x-forwarded-headers.html
+        map $http_x_forwarded_proto $x_proto {
+            volatile;
+            default       $scheme;
+            http          http;
+            https         https;
+        }
+        {{- range $ip := .Values.config.processing.setRealIpFrom }}
+        set_real_ip_from "{{ $ip }}";
+        {{- end }}
+        real_ip_header "{{ .Values.config.processing.realIpHeader }}";
+        real_ip_recursive on;
+
+        # Wallarm metrics and healthcheck endpoints
+        server {
+            listen 0.0.0.0:{{ .Values.config.processing.metricsPort }} default_server;
+            listen [::]:{{ .Values.config.processing.metricsPort }} default_server;
+
+            server_name _;
+
+            wallarm_mode off;
+            disable_acl "on";
+
+            keepalive_timeout 0;
+            gzip off;
+            access_log off;
+
+            location /metrics {
+                wallarm_status on format=prometheus;
+            }
+
+            location /metrics/json {
+                wallarm_status on format=json;
+            }
+
+            location /healthcheck {
+                return 200 'OK';
+            }
+
+            location / {
+                return 405 '';
+            }
+        }
+
+        # Wallarm status endpoint. Required for internal monitoring
+        server {
+          listen 127.0.0.1:10246;
+
+          server_name localhost;
+
+          allow 127.0.0.0/8;
+          deny all;
+
+          wallarm_mode off;
+          disable_acl "on";
+          access_log off;
+
+          location /wallarm-status {
+            wallarm_status on;
+          }
+        }
+
+        # Wallarm primary endpoint which receives traffic to analyze
+        server {
+            listen 0.0.0.0:{{ .Values.config.processing.httpPort }} default_server;
+            listen [::]:{{ .Values.config.processing.httpPort }} default_server;
+
+            server_name _;
+            wallarm_mode off;
+
+            location / {
+                set $domain_in_host_header '';
+                access_by_lua_block {
+                    ngx.var.domain_in_host_header=string.gmatch(ngx.var.host, "([^:]+)"){0};
+                }
+                proxy_set_header Host $domain_in_host_header;
+                proxy_set_header X-Forwarded-For $remote_addr;
+
+                proxy_pass http://127.0.0.1:60000;
+            }
+        }
+
+        # Wallarm internal endpoint
+        server {
+            listen 127.0.0.1:60000 default_server;
+
+            server_name _;
+
+            location / {
+                wallarm_force server_addr $http_x_server_addr;
+                wallarm_force server_port $http_x_server_port;
+
+                wallarm_force response_status 0;
+                wallarm_force response_time 0;
+                wallarm_force response_size 0;
+
+                echo_read_request_body;
+            }
+        }
+    }

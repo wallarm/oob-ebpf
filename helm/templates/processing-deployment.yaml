@@ -1,0 +1,276 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "processing.fullname" . }}
+  annotations:
+    {{- include "processing.annotations" . | nindent 4 }}
+  labels:
+    {{- include "processing.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.processing.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  {{- with .Values.processing.updateStrategy }}
+  strategy: {{ . | toYaml | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "processing.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ index (include (print .Template.BasePath "/processing-configmap.yaml") . | fromYaml) "data" | toYaml | sha256sum }}
+        checksum/credentials: {{ index (include (print .Template.BasePath "/shared-secret.yaml") . | fromYaml) "data" | toYaml | sha256sum }}
+        {{- include "processing.annotations" . | nindent 8 }}
+        {{- with .Values.processing.podAnnotations }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "processing.labels" . | nindent 8 }}
+        {{- with .Values.processing.podLabels }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- if .Values.processing.serviceAccount.create }}
+      serviceAccountName: {{ template "processing.serviceAccountName" . }}
+      {{- else }}
+      automountServiceAccountToken: false
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.processing.terminationGracePeriodSeconds | default 30 }}
+      {{- with .Values.processing.nodeSelector }}
+      nodeSelector: {{ . | toYaml | nindent 8 }}
+      {{- end }}
+      {{- with .Values.processing.tolerations }}
+      tolerations: {{ . | toYaml | nindent 8 }}
+      {{- end }}
+      {{- with .Values.processing.affinity }}
+      affinity: {{ . | toYaml | nindent 8 }}
+      {{- end }}
+      {{- with .Values.processing.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{ . | toYaml | nindent 8 }}
+      {{- end }}
+      initContainers:
+      - name: init
+        image: {{ include "image" .Values.processing.init.image }}
+        imagePullPolicy: {{ .Values.processing.init.image.pullPolicy }}
+        command:
+          - sh
+          - -c
+          - >
+            /opt/wallarm/ruby/usr/share/wallarm-common/synccloud --one-time &&
+            /opt/wallarm/ruby/usr/share/wallarm-common/sync-ip-lists --one-time -l STDOUT &&
+            /opt/wallarm/ruby/usr/share/wallarm-common/sync-ip-lists-source --one-time -l STDOUT;
+            timeout 10m /opt/wallarm/ruby/usr/share/wallarm-common/export-environment -l STDOUT
+        env:
+        - name: WALLARM_COMPONENT_NAME
+          value: wallarm-oob
+        - name: WALLARM_COMPONENT_VERSION
+          value: {{ .Chart.Version | quote }}
+        {{- include "wallarm-oob.credentials" . | nindent 8 }}
+        {{- with .Values.processing.init.extraEnvs }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+        {{- with .Values.processing.init.livenessProbe }}
+        livenessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.processing.init.readinessProbe }}
+        readinessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.processing.init.lifecycle }}
+        lifecycle: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        securityContext:
+        {{- if .Values.processing.init.securityContext }}
+        {{- .Values.processing.init.securityContext | toYaml | nindent 10 }}
+        {{- else }}
+        {{ include "wallarm-oob.defaultSecurityContext" . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.processing.init.resources }}
+        resources: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - mountPath: /etc/wallarm
+          name: wallarm
+        - mountPath: /var/lib/wallarm-acl
+          name: wallarm-acl
+        {{- with .Values.processing.init.extraVolumeMounts }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+      {{- with .Values.processing.extraInitContainers }}
+      {{- . | toYaml | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: node
+        image: {{ include "image" .Values.processing.node.image }}
+        imagePullPolicy: {{ .Values.processing.node.image.pullPolicy }}
+        env:
+        {{- with .Values.processing.node.extraEnvs }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.config.processing.httpPort }}
+          protocol: TCP
+        - name: metrics
+          containerPort: {{ .Values.config.processing.metricsPort }}
+          protocol: TCP
+        {{- with .Values.processing.node.livenessProbe }}
+        livenessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.processing.node.readinessProbe }}
+        readinessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.processing.lifecycle }}
+        lifecycle: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        securityContext:
+        {{- if .Values.processing.node.securityContext }}
+        {{- .Values.processing.node.securityContext | toYaml | nindent 10 }}
+        {{- else }}
+        {{ include "wallarm-oob.serviceSecurityContext" . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.processing.resources }}
+        resources: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: wallarm-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+          readOnly: true
+        - name: wallarm
+          mountPath: /etc/wallarm
+        - name: wallarm-acl
+          mountPath: /var/lib/wallarm-acl
+        - name: wallarm-cache
+          mountPath: /var/lib/nginx/wallarm
+        {{- with .Values.processing.node.extraVolumeMounts }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+      - name: cron
+        image: {{ include "image" .Values.processing.cron.image }}
+        imagePullPolicy: {{ .Values.processing.cron.image.pullPolicy }}
+        command: ["/bin/dumb-init", "--"]
+        args: ["/bin/supercronic", "-json", "/opt/cron/crontab"]
+        env:
+        - name: WALLARM_COMPONENT_NAME
+          value: wallarm-oob
+        - name: WALLARM_COMPONENT_VERSION
+          value: {{ .Chart.Version | quote }}
+        {{- with .Values.processing.cron.extraEnvs }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+        {{- with .Values.processing.cron.livenessProbe }}
+        livenessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.processing.cron.readinessProbe }}
+        readinessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.processing.cron.lifecycle }}
+        lifecycle: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        securityContext:
+        {{- if .Values.processing.cron.securityContext }}
+        {{- .Values.processing.cron.securityContext | toYaml | nindent 10 }}
+        {{- else }}
+        {{ include "wallarm-oob.defaultSecurityContext" . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.processing.cron.resources }}
+        resources: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: wallarm
+          mountPath: /etc/wallarm
+        - name: wallarm-acl
+          mountPath: /var/lib/wallarm-acl
+        - name: wallarm-config
+          mountPath: /opt/cron/crontab
+          subPath: crontab
+          readOnly: true
+        {{- with .Values.processing.cron.extraVolumeMounts }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+      - name: collectd
+        image: {{ include "image" .Values.processing.collectd.image }}
+        imagePullPolicy: {{ .Values.processing.collectd.image.pullPolicy }}
+        {{- with .Values.processing.collectd.livenessProbe }}
+        livenessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.processing.collectd.readinessProbe }}
+        readinessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.processing.collectd.lifecycle }}
+        lifecycle: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        securityContext:
+        {{- if .Values.processing.collectd.securityContext }}
+        {{- .Values.processing.collectd.securityContext | toYaml | nindent 10 }}
+        {{- else }}
+        {{ include "wallarm-oob.defaultSecurityContext" . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.processing.collectd.resources }}
+        resources: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: wallarm
+          mountPath: /etc/wallarm
+        {{- with .Values.processing.collectd.extraVolumeMounts }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+      - name: syncnode
+        image: {{ include "image" .Values.processing.syncnode.image }}
+        imagePullPolicy: {{ .Values.processing.syncnode.image.pullPolicy }}
+        command: [ "/bin/dumb-init", "--" ]
+        args: ["/opt/wallarm/ruby/usr/share/wallarm-common/syncnode", "-p", "-r", "120", "-l", "STDOUT", "-L", "DEBUG"]
+        env:
+        {{- include "wallarm-oob.credentials" . | nindent 8 }}
+        {{- with .Values.processing.syncnode.extraEnvs }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+        {{- with .Values.processing.syncnode.livenessProbe }}
+        livenessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.processing.syncnode.readinessProbe }}
+        readinessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.processing.syncnode.lifecycle }}
+        lifecycle: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        securityContext:
+        {{- if .Values.processing.syncnode.securityContext }}
+        {{- .Values.processing.syncnode.securityContext | toYaml | nindent 10 }}
+        {{- else }}
+        {{ include "wallarm-oob.defaultSecurityContext" . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.processing.syncnode.resources }}
+        resources: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+          - name: wallarm
+            mountPath: /etc/wallarm
+          - name: wallarm-acl
+            mountPath: /var/lib/wallarm-acl
+          - name: wallarm-config
+            mountPath: /opt/cron/crontab
+            subPath: crontab
+            readOnly: true
+        {{- with .Values.processing.syncnode.extraVolumeMounts }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+      {{- with .Values.processing.extraContainers }}
+      {{- . | toYaml | nindent 6 }}
+      {{- end }}
+      volumes:
+      - name: wallarm
+        emptyDir: {}
+      - name: wallarm-acl
+        emptyDir: {}
+      - name: wallarm-cache
+        emptyDir: {}
+      - name: wallarm-config
+        configMap:
+          name: {{ template "processing.fullname" . }}
+      {{- with .Values.processing.extraVolumes }}
+      {{- . | toYaml | nindent 6 }}
+      {{- end }}

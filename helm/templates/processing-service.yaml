@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "processing.fullname" . }}
+  annotations:
+    {{- include "wallarm-oob.annotations" . | nindent 4 }}
+    {{- with .Values.processing.service.annotations }}
+    {{- . | toYaml | nindent 4 }}
+    {{- end }}
+    {{- with .Values.processing.extraAnnotations }}
+    {{- . | toYaml | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "processing.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.processing.service.type | default "ClusterIP" }}
+  {{- with .Values.processing.service.clusterIP }}
+  clusterIP: {{ . }}
+  {{- end }}
+  {{- if eq (.Values.processing.service.type | default "ClusterIP") "LoadBalancer" -}}
+  {{- with .Values.processing.service.loadBalancerIP }}
+  loadBalancerIP: {{ . }}
+  {{- end }}
+  {{- with .Values.processing.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges: {{ . | toYaml | nindent 2 }}
+  {{- end }}
+  {{- end }}
+  selector:
+    {{- include "processing.selectorLabels" . | nindent 4 }}
+  ports:
+  - name: http
+    port: {{ .Values.processing.service.port }}
+    targetPort: http
+    protocol: TCP
+    {{- if has (.Values.processing.service.type | default "ClusterIP") (list "NodePort" "LoadBalancer") -}}
+    {{- with .Values.processing.service.nodePort }}
+    nodePort: {{ . }}
+    {{- end }}
+    {{- end }}
+  {{- if has (.Values.processing.service.type | default "ClusterIP") (list "NodePort" "LoadBalancer") }}
+  {{- with .Values.processing.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ . }}
+  {{- end }}
+  {{- end }}
+  {{- with .Values.processing.service.externalIPs }}
+  externalIPs: {{ . | toYaml | nindent 2 }}
+  {{- end }}

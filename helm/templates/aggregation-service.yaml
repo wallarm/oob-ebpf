@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "aggregation.fullname" . }}
+  annotations:
+    {{- include "aggregation.annotations" . | nindent 4 }}
+    {{- with .Values.aggregation.service.annotations }}
+    {{- . | toYaml | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "aggregation.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.aggregation.service.type | default "ClusterIP" }}
+  {{- with .Values.aggregation.service.clusterIP }}
+  clusterIP: {{ . }}
+  {{- end }}
+  {{- if eq (.Values.aggregation.service.type | default "ClusterIP") "LoadBalancer" -}}
+  {{- with .Values.aggregation.service.loadBalancerIP }}
+  loadBalancerIP: {{ . }}
+  {{- end }}
+  {{- with .Values.aggregation.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges: {{ . | toYaml | nindent 2 }}
+  {{- end }}
+  {{- end }}
+  selector:
+    {{- include "aggregation.selectorLabels" . | nindent 4 }}
+  ports:
+  - name: tarantool
+    port: {{ .Values.aggregation.service.port }}
+    targetPort: tarantool
+    protocol: TCP
+    {{- if has (.Values.aggregation.service.type | default "ClusterIP") (list "NodePort" "LoadBalancer") -}}
+    {{- with .Values.aggregation.service.nodePort }}
+    nodePort: {{ . }}
+    {{- end }}
+    {{- end }}
+  {{- if has (.Values.aggregation.service.type | default "ClusterIP") (list "NodePort" "LoadBalancer") }}
+  {{- with .Values.aggregation.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ . }}
+  {{- end }}
+  {{- end }}
+  {{- with .Values.aggregation.service.externalIPs }}
+  externalIPs: {{ . | toYaml | nindent 2 }}
+  {{- end }}

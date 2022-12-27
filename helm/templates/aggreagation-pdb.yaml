@@ -1,0 +1,22 @@
+{{- if .Values.aggregation.podDisruptionBudget }}
+{{- if .Values.aggregation.podDisruptionBudget.enabled }}
+apiVersion: {{ template "podDisruptionBudget.apiVersion" . }}
+kind: PodDisruptionBudget
+metadata:
+  name: {{ template "aggregation.fullname" . }}
+  annotations:
+    {{- include "aggregation.annotations" . | nindent 4 }}
+  labels:
+    {{- include "aggregation.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "aggregation.selectorLabels" . | nindent 6 }}
+  {{- with .Values.aggregation.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  {{- with .Values.aggregation.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
+{{- end }}
+{{- end }}

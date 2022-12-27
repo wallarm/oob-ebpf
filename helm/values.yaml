@@ -1,0 +1,1294 @@
+nameOverride: ""
+
+config:
+  ### Wallarm API configuration
+  ###
+  api:
+    ### Token to authorize in the Wallarm Cloud. Required.
+    ###
+    token: ""
+    ### Address of Wallarm API service
+    ###
+    host: api.wallarm.com
+    ### Port of Wallarm API service
+    ###
+    port: 443
+    ### Use SSL to connect to Wallarm API service: `true` or `false`
+    ###
+    useSSL: true
+
+  ### Processing unit configuration
+  ###
+  processing:
+    ### Nginx directive 'real_ip_header' http://nginx.org/en/docs/http/ngx_http_realip_module.html#real_ip_header
+    ###
+    realIpHeader: X-Forwarded-For
+
+    ### Nginx directive 'set_real_ip_from' http://nginx.org/en/docs/http/ngx_http_realip_module.html#set_real_ip_from
+    ###
+    setRealIpFrom:
+      - 10.0.0.0/8
+      - 192.168.0.0/16
+      - 172.16.0.0/12
+      - 127.0.0.0/8
+      - fd00::/8
+
+    ### Port for Wallarm metrics and health check endpoints
+    ###
+    metricsPort: 18080
+
+    ### Port for http traffic from agents to analyze by Wallarm node
+    ###
+    httpPort: 18445
+
+  ### Aggregation unit configuration
+  ###
+  aggregation:
+    ### The allocated memory size in GB for Tarantool in-memory storage. Detailed recommendations are provided
+    ### here: https://docs.wallarm.com/admin-en/configuration-guides/allocate-resources-for-waf-node/
+    ###
+    tarantoolMemory: 0.5
+
+## Array of private container registry credentials
+## https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+##
+## Skipped yet. Will be valid ifter moving to GitLab
+## CI and GitLab Container Registry
+##
+imagePullSecrets: []
+# - name: secretName
+
+# Rollback limit
+## https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#revision-history-limit
+revisionHistoryLimit: 10
+
+## Processing unit deployment configuration
+##
+processing:
+  ## Number of deployment replicas
+  ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#deploymentspec-v1-apps
+  ##
+  replicaCount: 1
+
+  ## Settings for automated rolling updates
+  ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#deploymentstrategy-v1-apps
+  ##
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0%
+
+  ## Labels to add to the pods
+  ##
+  podLabels: {}
+  # key: value
+
+  ## Annotations to add to the pods
+  ##
+  podAnnotations: {}
+  # key: value
+
+  ## Setting to allow this Pod to schedule onto nodes with matching taints
+  ## https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+  ##
+  tolerations: []
+  # - key: "key"
+  #   operator: "Equal|Exists"
+  #   value: "value"
+  #   effect: "NoSchedule|PreferNoSchedule"
+
+  ## Affinity and anti-affinity settings of this Pod
+  ## https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+  ##
+  ## Prefered podAntiAffinity will be applied if no one affinity configured
+  ##
+  affinity: {}
+  # podAntiAffinity:
+  #   preferredDuringSchedulingIgnoredDuringExecution:
+  #   - weight: 100
+  #     podAffinityTerm:
+  #       labelSelector:
+  #         matchExpressions:
+  #         - key: component
+  #           operator: In
+  #           values:
+  #           - mtls-router
+  #         - key: app
+  #           operator: In
+  #           values:
+  #           - mtls-router
+  #       topologyKey: kubernetes.io/hostname
+
+  ## Node selector (node labels) for pods
+  ## https://kubernetes.io/docs/user-guide/node-selection/
+  ##
+  nodeSelector:
+    kubernetes.io/os: linux
+
+  ## Lifecycle hooks
+  ## https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+  ##
+  lifecycle: {}
+
+  ## Grace period for the pods termination in seconds
+  ##
+  terminationGracePeriodSeconds: 30
+
+  ## PriorityClass name to apply to the pods
+  ## This setting indicates the importance of the pod relative to other pods
+  ## https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/
+  ##
+  priorityClassName: ""
+
+  ## Component specific configuration
+  ##
+  init:
+    image:
+      registry: "docker.io"
+      name: "wallarm/ingress-ruby"
+      tag: "4.4.0-1"
+      pullPolicy: IfNotPresent
+
+    extraEnvs: []
+    # - name: FOO
+    #   value: FOO
+    # - name: BAR
+    #   valueFrom:
+    #     secretKeyRef:
+    #       key: BAR
+    #       name: bar-secret
+
+    ## Lifecycle hooks
+    ## https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+    ##
+    lifecycle: {}
+
+    ## Privileges and access controls for the container
+    ## https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+    ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#securitycontext-v1-core
+    ##
+    securityContext: {}
+
+    ## The number of resources required for the main container
+    ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    ##
+    resources: {}
+    # limits:
+    #   cpu: 250m
+    #   memory: 300Mi
+    # requests:
+    #   cpu: 50m
+    #   memory: 150Mi
+
+    ### Liveness probe for the container. Disabled by default
+    ###
+    livenessProbe: {}
+
+    ### Readiness probe for the container. Disabled by default
+    ###
+    readinessProbe: {}
+
+    ## Additional volumes that should be mounted to the container
+    ##
+    extraVolumeMounts: []
+    # - name: something
+    #   mountPath: /mnt/something
+
+  node:
+    image:
+      registry: "quay.io"
+      name: "dmitriev/ingress-nginx"
+      tag: "4.4.1-test"
+      pullPolicy: IfNotPresent
+
+    ## Additional environment variables to pass to the container
+    ##
+    extraEnvs: []
+    # - name: FOO
+    #   value: FOO
+    # - name: BAR
+    #   valueFrom:
+    #     secretKeyRef:
+    #       key: BAR
+    #       name: bar-secret
+
+    ## Lifecycle hooks
+    ## https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+    ##
+    lifecycle: {}
+
+    ## Privileges and access controls for the container
+    ## https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+    ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#securitycontext-v1-core
+    ##
+    securityContext: {}
+
+    ## The number of resources required for the main container
+    ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    ##
+    resources: {}
+    # requests:
+    #   memory: 1Gi
+    #   cpu: 500m
+    # limits:
+    #   memory: 1Gi
+    #   cpu: 1000m
+
+    ### Liveness probe for the container
+    ###
+    livenessProbe:
+      httpGet:
+        path: /healthcheck
+        port: metrics
+      initialDelaySeconds: 30
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 3
+      successThreshold: 1
+
+    ### Readiness probe for the container
+    ###
+    readinessProbe:
+      httpGet:
+        path: /healthcheck
+        port: metrics
+      initialDelaySeconds: 30
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 3
+      successThreshold: 1
+
+    ## Additional volumes that should be mounted to the container
+    ##
+    extraVolumeMounts: []
+    # - name: something
+    #   mountPath: /mnt/something
+
+  cron:
+    image:
+      registry: "docker.io"
+      name: "wallarm/ingress-ruby"
+      tag: "4.4.0-1"
+      pullPolicy: IfNotPresent
+
+    ### Cron jobs configuration
+    ###
+    config:
+      export-environment:
+        schedule: "0 */1 * * *"
+        command: "/opt/wallarm/ruby/usr/share/wallarm-common/export-environment -l STDOUT"
+        timeout: 10m
+      sync-ip-lists:
+        schedule: "* * * * *"
+        command: "/opt/wallarm/ruby/usr/share/wallarm-common/sync-ip-lists -l STDOUT"
+        timeout: 3h
+      export-metrics:
+        schedule: "* * * * *"
+        command: "/opt/wallarm/ruby/usr/share/wallarm-common/export-metrics -l STDOUT"
+        timeout: 3h
+      sync-ip-lists-source:
+        schedule: "* * * * *"
+        command: "/opt/wallarm/ruby/usr/share/wallarm-common/sync-ip-lists-source -l STDOUT"
+        timeout: 3h
+
+    extraEnvs: []
+    # - name: FOO
+    #   value: FOO
+    # - name: BAR
+    #   valueFrom:
+    #     secretKeyRef:
+    #       key: BAR
+    #       name: bar-secret
+
+    ## Lifecycle hooks
+    ## https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+    ##
+    lifecycle: {}
+
+    ## Privileges and access controls for the container
+    ## https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+    ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#securitycontext-v1-core
+    ##
+    securityContext: {}
+
+    ## The number of resources required for the main container
+    ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    ##
+    resources: {}
+    # limits:
+    #   cpu: 250m
+    #   memory: 300Mi
+    # requests:
+    #   cpu: 50m
+    #   memory: 150Mi
+
+    ### Liveness probe for the container. Disabled by default
+    ###
+    livenessProbe: {}
+
+    ### Readiness probe for the container. Disabled by default
+    ###
+    readinessProbe: {}
+
+    ## Additional volumes that should be mounted to the container
+    ##
+    extraVolumeMounts: []
+    # - name: something
+    #   mountPath: /mnt/something
+
+  collectd:
+    image:
+      registry: "docker.io"
+      name: "wallarm/ingress-collectd"
+      tag: "4.4.0-1"
+      pullPolicy: IfNotPresent
+
+    extraEnvs: []
+    # - name: FOO
+    #   value: FOO
+    # - name: BAR
+    #   valueFrom:
+    #     secretKeyRef:
+    #       key: BAR
+    #       name: bar-secret
+
+    ## Lifecycle hooks
+    ## https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+    ##
+    lifecycle: {}
+
+    ## Privileges and access controls for the container
+    ## https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+    ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#securitycontext-v1-core
+    ##
+    securityContext: {}
+
+    ## The number of resources required for the main container
+    ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    ##
+    resources: {}
+    # limits:
+    #   cpu: 250m
+    #   memory: 300Mi
+    # requests:
+    #   cpu: 50m
+    #   memory: 150Mi
+
+    ### Liveness probe for the container. Disabled by default
+    ###
+    livenessProbe: {}
+
+    ### Readiness probe for the container. Disabled by default
+    ###
+    readinessProbe: {}
+
+    ## Additional volumes that should be mounted to the container
+    ##
+    extraVolumeMounts: []
+    # - name: something
+    #   mountPath: /mnt/something
+
+  syncnode:
+    image:
+      registry: "docker.io"
+      name: "wallarm/ingress-ruby"
+      tag: "4.4.0-1"
+      pullPolicy: IfNotPresent
+
+    extraEnvs: []
+    # - name: FOO
+    #   value: FOO
+    # - name: BAR
+    #   valueFrom:
+    #     secretKeyRef:
+    #       key: BAR
+    #       name: bar-secret
+
+    ## Lifecycle hooks
+    ## https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+    ##
+    lifecycle: {}
+
+    ## Privileges and access controls for the container
+    ## https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+    ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#securitycontext-v1-core
+    ##
+    securityContext: {}
+
+    ## The number of resources required for the main container
+    ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    ##
+    resources: {}
+    # limits:
+    #   cpu: 250m
+    #   memory: 300Mi
+    # requests:
+    #   cpu: 50m
+    #   memory: 150Mi
+
+    ### Liveness probe for the container. Disabled by default
+    ###
+    livenessProbe: {}
+
+    ### Readiness probe for the container. Disabled by default
+    ###
+    readinessProbe: {}
+
+    ## Additional volumes that should be mounted to the container
+    ##
+    extraVolumeMounts: []
+    # - name: something
+    #   mountPath: /mnt/something
+
+  service:
+    ## Service type
+    ## https://kubernetes.io/docs/concepts/services-networking/service/
+    ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#service-v1-core
+    ##
+    type: ClusterIP
+
+    ## Service port
+    ##
+    port: 80
+
+    ## Service node port (if the service type if "NodePort")
+    ##
+    nodePort: 0
+
+    ## Load balancer IP address
+    ## https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer
+    ##
+    loadBalancerIP: ""
+
+    ## Load balancer source ranges. Helpful for EKS/GKE/AKE
+    ## https://kubernetes.io/docs/concepts/services-networking/service/#aws-nlb-support
+    ##
+    loadBalancerSourceRanges: []
+    # - "192.168.0.0/16"
+    # - "10.0.0.0/8"
+    # - "172.16.0.0/12"
+
+    ## Kubernetes external traffic policy
+    ## https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/
+    ##
+    externalTrafficPolicy: ""
+
+    ## Annotations for this Service
+    ##
+    annotations: {}
+
+    ## IP address of this Service cluster
+    ##
+    clusterIP: ""
+
+    ## ExternalIPs is a list of IP addresses for which nodes in the cluster will also accept traffic
+    ## for this service. These IPs are not managed by Kubernetes.
+    ##
+    externalIPs: []
+
+  ## Service Account for this Pod
+  ## https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+  ##
+  serviceAccount:
+    create: false
+
+    ## Name of the ServiceAccount. If creating not required then
+    ## this name must be a name of existing ServiceAccount object
+    ##
+    name: ""
+
+    ## Annotations for the created Service Account
+    ##
+    annotations: {}
+
+  ## Pod Disruption Budget settings
+  ## https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+  ##
+  podDisruptionBudget:
+    enabled: true
+    ### Select only one of these:
+    maxUnavailable: 1
+    # minAvailable: 1
+
+  ## Autoscaling
+  ## https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  ##
+  autoscaling:
+    enabled: false
+
+    ## Scaling thresholds, min and max
+    ##
+    minReplicas: 1
+    maxReplicas: 3
+
+    ## Target average values of the metric across all relevant pods, represented
+    ## as a percentage of the requested value of the resource for the pods.
+    ##
+    targetCPUUtilizationPercentage: 60
+    targetMemoryUtilizationPercentage: 85
+
+  ## Additional containers for this pods
+  ##
+  extraContainers: []
+  # - name: some-container
+  #   image: some/image:latest
+  #   env:
+  #   - name: FOO
+  #     value: "123"
+  #   volumeMounts:
+  #   - name: bar-volume
+  #     mountPath: /mnt
+
+  ## Additional init containers
+  ##
+  extraInitContainers: []
+  # - name: init
+  #   image: busybox
+  #   command: ['sh', '-c', 'until nslookup myservice; do echo waiting for myservice; sleep 2; done;']
+
+  ## Additional volumes that should be mounted to the main container
+  ##
+  extraVolumeMounts: []
+  # - name: something
+  #   mountPath: /mnt/something
+
+  ## Volumes that should be attached to pods
+  ##
+  extraVolumes: []
+  # - name: something
+  #   emptyDir: {}
+
+  extraLabels: {}
+  extraAnnotations: {}
+
+## Aggregation unit deployment configuration
+##
+aggregation:
+  ## Number of deployment replicas
+  ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#deploymentspec-v1-apps
+  ##
+  replicaCount: 1
+
+  ## Settings for automated rolling updates
+  ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#deploymentstrategy-v1-apps
+  ##
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0%
+
+  ## Labels to add to the pods
+  ##
+  podLabels: {}
+  # key: value
+
+  ## Annotations to add to the pods
+  ##
+  podAnnotations: {}
+  # key: value
+
+  ## Setting to allow this Pod to schedule onto nodes with matching taints
+  ## https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+  ##
+  tolerations: []
+  # - key: "key"
+  #   operator: "Equal|Exists"
+  #   value: "value"
+  #   effect: "NoSchedule|PreferNoSchedule"
+
+  ## Affinity and anti-affinity settings of this Pod
+  ## https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+  ##
+  ## Prefered podAntiAffinity will be applied if no one affinity configured
+  ##
+  affinity: {}
+  # podAntiAffinity:
+  #   preferredDuringSchedulingIgnoredDuringExecution:
+  #   - weight: 100
+  #     podAffinityTerm:
+  #       labelSelector:
+  #         matchExpressions:
+  #         - key: component
+  #           operator: In
+  #           values:
+  #           - mtls-router
+  #         - key: app
+  #           operator: In
+  #           values:
+  #           - mtls-router
+  #       topologyKey: kubernetes.io/hostname
+
+  ## Node selector (node labels) for pods
+  ## https://kubernetes.io/docs/user-guide/node-selection/
+  ##
+  nodeSelector:
+    kubernetes.io/os: linux
+
+  ## Lifecycle hooks
+  ## https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+  ##
+  lifecycle: {}
+
+  ## Grace period for the pods termination in seconds
+  ##
+  terminationGracePeriodSeconds: 30
+
+  ## PriorityClass name to apply to the pods
+  ## This setting indicates the importance of the pod relative to other pods
+  ## https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/
+  ##
+  priorityClassName: ""
+
+  ## Component specific configuration
+  ##
+  init:
+    image:
+      registry: "docker.io"
+      name: "wallarm/ingress-ruby"
+      tag: "4.4.0-1"
+      pullPolicy: IfNotPresent
+
+    extraEnvs: []
+    # - name: FOO
+    #   value: FOO
+    # - name: BAR
+    #   valueFrom:
+    #     secretKeyRef:
+    #       key: BAR
+    #       name: bar-secret
+
+    ## Lifecycle hooks
+    ## https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+    ##
+    lifecycle: {}
+
+    ## Privileges and access controls for the container
+    ## https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+    ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#securitycontext-v1-core
+    ##
+    securityContext: {}
+
+    ## The number of resources required for the main container
+    ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    ##
+    resources: {}
+    # limits:
+    #   cpu: 250m
+    #   memory: 300Mi
+    # requests:
+    #   cpu: 50m
+    #   memory: 150Mi
+
+    ### Liveness probe for the container. Disabled by default
+    ###
+    livenessProbe: {}
+
+    ### Readiness probe for the container. Disabled by default
+    ###
+    readinessProbe: {}
+
+    ## Additional volumes that should be mounted to the container
+    ##
+    extraVolumeMounts: []
+    # - name: something
+    #   mountPath: /mnt/something
+
+  cron:
+    image:
+      registry: "docker.io"
+      name: "wallarm/ingress-ruby"
+      tag: "4.4.0-1"
+      pullPolicy: IfNotPresent
+
+    ### Cron jobs configuration
+    ###
+    config:
+      "export-attacks":
+        schedule: "* * * * *"
+        command: "/opt/wallarm/ruby/usr/share/wallarm-common/export-attacks -l STDOUT"
+        timeout: 3h
+      "export-counters":
+        schedule: "* * * * *"
+        command: "/opt/wallarm/ruby/usr/share/wallarm-common/export-counters -l STDOUT"
+        timeout: 11m
+      "export-environment":
+        schedule: "0 */1 * * *"
+        command: "/opt/wallarm/ruby/usr/share/wallarm-common/export-environment -l STDOUT"
+        timeout: 10m
+      "brute-detect":
+        schedule: "* * * * *"
+        command: "/opt/wallarm/ruby/usr/share/wallarm-common/brute-detect -l STDOUT"
+        timeout: 6m
+      "sync-markers":
+        schedule: "* * * * *"
+        command: "/opt/wallarm/ruby/usr/share/wallarm-common/sync-markers -l STDOUT"
+        timeout: 1h
+      "weak-jwt-detect":
+        schedule: "* * * * *"
+        command: "/opt/wallarm/ruby/usr/share/wallarm-common/weak-jwt-detect -l STDOUT"
+        timeout: 10m
+
+    extraEnvs: []
+    # - name: FOO
+    #   value: FOO
+    # - name: BAR
+    #   valueFrom:
+    #     secretKeyRef:
+    #       key: BAR
+    #       name: bar-secret
+
+    ## Lifecycle hooks
+    ## https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+    ##
+    lifecycle: {}
+
+    ## Privileges and access controls for the container
+    ## https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+    ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#securitycontext-v1-core
+    ##
+    securityContext: {}
+
+    ## The number of resources required for the main container
+    ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    ##
+    resources: {}
+    # limits:
+    #   cpu: 250m
+    #   memory: 300Mi
+    # requests:
+    #   cpu: 50m
+    #   memory: 150Mi
+
+    ### Liveness probe for the container. Disabled by default
+    ###
+    livenessProbe: {}
+
+    ### Readiness probe for the container. Disabled by default
+    ###
+    readinessProbe: {}
+
+    ## Additional volumes that should be mounted to the container
+    ##
+    extraVolumeMounts: []
+    # - name: something
+    #   mountPath: /mnt/something
+
+  tarantool:
+    image:
+      registry: "docker.io"
+      name: "wallarm/ingress-tarantool"
+      tag: "4.4.0-1"
+      pullPolicy: IfNotPresent
+
+    extraEnvs: []
+    # - name: FOO
+    #   value: FOO
+    # - name: BAR
+    #   valueFrom:
+    #     secretKeyRef:
+    #       key: BAR
+    #       name: bar-secret
+
+    ## Lifecycle hooks
+    ## https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+    ##
+    lifecycle: {}
+
+    ## Privileges and access controls for the container
+    ## https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+    ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#securitycontext-v1-core
+    ##
+    securityContext: {}
+
+    ## The number of resources required for the main container
+    ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    ##
+    resources: {}
+    # limits:
+    #   cpu: 250m
+    #   memory: 300Mi
+    # requests:
+    #   cpu: 50m
+    #   memory: 150Mi
+
+    ### Liveness probe for the container
+    ###
+    livenessProbe:
+      tcpSocket:
+        port: tarantool
+      initialDelaySeconds: 10
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 3
+      successThreshold: 1
+
+    ### Readiness probe for the container
+    ###
+    readinessProbe:
+      tcpSocket:
+        port: tarantool
+      initialDelaySeconds: 10
+      periodSeconds: 15
+      timeoutSeconds: 3
+      failureThreshold: 3
+      successThreshold: 1
+
+    ## Additional volumes that should be mounted to the container
+    ##
+    extraVolumeMounts: []
+    # - name: something
+    #   mountPath: /mnt/something
+
+  heartbeat:
+    image:
+      registry: "docker.io"
+      name: "wallarm/ingress-ruby"
+      tag: "4.4.0-1"
+      pullPolicy: IfNotPresent
+
+    extraEnvs: []
+    # - name: FOO
+    #   value: FOO
+    # - name: BAR
+    #   valueFrom:
+    #     secretKeyRef:
+    #       key: BAR
+    #       name: bar-secret
+
+    ## Lifecycle hooks
+    ## https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+    ##
+    lifecycle: {}
+
+    ## Privileges and access controls for the container
+    ## https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+    ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#securitycontext-v1-core
+    ##
+    securityContext: {}
+
+    ## The number of resources required for the main container
+    ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    ##
+    resources: {}
+    # limits:
+    #   cpu: 250m
+    #   memory: 300Mi
+    # requests:
+    #   cpu: 50m
+    #   memory: 150Mi
+
+    ### Liveness probe for the container. Disabled by default
+    ###
+    livenessProbe: {}
+
+    ### Readiness probe for the container. Disabled by default
+    ###
+    readinessProbe: {}
+
+    ## Additional volumes that should be mounted to the container
+    ##
+    extraVolumeMounts: []
+    # - name: something
+    #   mountPath: /mnt/something
+
+  appStructure:
+    image:
+      registry: "docker.io"
+      name: "wallarm/ingress-python"
+      tag: "4.4.0-1"
+      pullPolicy: IfNotPresent
+
+    extraEnvs: []
+    # - name: FOO
+    #   value: FOO
+    # - name: BAR
+    #   valueFrom:
+    #     secretKeyRef:
+    #       key: BAR
+    #       name: bar-secret
+
+    ## Lifecycle hooks
+    ## https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+    ##
+    lifecycle: {}
+
+    ## Privileges and access controls for the container
+    ## https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+    ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#securitycontext-v1-core
+    ##
+    securityContext: {}
+
+    ## The number of resources required for the main container
+    ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    ##
+    resources: {}
+    # limits:
+    #   cpu: 250m
+    #   memory: 300Mi
+    # requests:
+    #   cpu: 50m
+    #   memory: 150Mi
+
+    ### Liveness probe for the container. Disabled by default
+    ###
+    livenessProbe: {}
+
+    ### Readiness probe for the container. Disabled by default
+    ###
+    readinessProbe: {}
+
+    ## Additional volumes that should be mounted to the container
+    ##
+    extraVolumeMounts: []
+    # - name: something
+    #   mountPath: /mnt/something
+
+  antiBot:
+    image:
+      registry: "docker.io"
+      name: "wallarm/ingress-python"
+      tag: "4.4.0-1"
+      pullPolicy: IfNotPresent
+
+    extraEnvs: []
+    # - name: FOO
+    #   value: FOO
+    # - name: BAR
+    #   valueFrom:
+    #     secretKeyRef:
+    #       key: BAR
+    #       name: bar-secret
+
+    ## Lifecycle hooks
+    ## https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+    ##
+    lifecycle: {}
+
+    ## Privileges and access controls for the container
+    ## https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+    ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#securitycontext-v1-core
+    ##
+    securityContext: {}
+
+    ## The number of resources required for the main container
+    ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+    ##
+    resources: {}
+    # limits:
+    #   cpu: 250m
+    #   memory: 300Mi
+    # requests:
+    #   cpu: 50m
+    #   memory: 150Mi
+
+    ### Liveness probe for the container. Disabled by default
+    ###
+    livenessProbe: {}
+
+    ### Readiness probe for the container. Disabled by default
+    ###
+    readinessProbe: {}
+
+    ## Additional volumes that should be mounted to the container
+    ##
+    extraVolumeMounts: []
+    # - name: something
+    #   mountPath: /mnt/something
+
+  service:
+    ## Service type
+    ## https://kubernetes.io/docs/concepts/services-networking/service/
+    ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#service-v1-core
+    ##
+    type: ClusterIP
+
+    ## Service port
+    ##
+    port: 3313
+
+    ## Service node port (if the service type if "NodePort")
+    ##
+    nodePort: 0
+
+    ## Load balancer IP address
+    ## https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer
+    ##
+    loadBalancerIP: ""
+
+    ## Load balancer source ranges. Helpful for EKS/GKE/AKE
+    ## https://kubernetes.io/docs/concepts/services-networking/service/#aws-nlb-support
+    ##
+    loadBalancerSourceRanges: []
+    # - "192.168.0.0/16"
+    # - "10.0.0.0/8"
+    # - "172.16.0.0/12"
+
+    ## Kubernetes external traffic policy
+    ## https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/
+    ##
+    externalTrafficPolicy: ""
+
+    ## Annotations for this Service
+    ##
+    annotations: {}
+
+    ## IP address of this Service cluster
+    ##
+    clusterIP: ""
+
+    ## ExternalIPs is a list of IP addresses for which nodes in the cluster will also accept traffic
+    ## for this service. These IPs are not managed by Kubernetes.
+    ##
+    externalIPs: []
+
+  ## Service Account for this Pod
+  ## https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+  ##
+  serviceAccount:
+    create: false
+
+    ## Name of the ServiceAccount. If creating not required then
+    ## this name must be a name of existing ServiceAccount object
+    ##
+    name: ""
+
+    ## Annotations for the created Service Account
+    ##
+    annotations: {}
+
+  ## Pod Disruption Budget settings
+  ## https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+  ##
+  podDisruptionBudget:
+    enabled: true
+    ### Select only one of these:
+    maxUnavailable: 0
+    # minAvailable: 1
+
+  ## Autoscaling
+  ## https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  ##
+  autoscaling:
+    enabled: false
+
+    ## Scaling thresholds, min and max
+    ##
+    minReplicas: 1
+    maxReplicas: 3
+
+    ## Target average values of the metric across all relevant pods, represented
+    ## as a percentage of the requested value of the resource for the pods.
+    ##
+    targetCPUUtilizationPercentage: 60
+    targetMemoryUtilizationPercentage: 85
+
+  ## Additional containers for this pods
+  ##
+  extraContainers: []
+  # - name: some-container
+  #   image: some/image:latest
+  #   env:
+  #   - name: FOO
+  #     value: "123"
+  #   volumeMounts:
+  #   - name: bar-volume
+  #     mountPath: /mnt
+
+  ## Additional init containers
+  ##
+  extraInitContainers: []
+  # - name: init
+  #   image: busybox
+  #   command: ['sh', '-c', 'until nslookup myservice; do echo waiting for myservice; sleep 2; done;']
+
+  ## Additional volumes that should be mounted to the main container
+  ##
+  extraVolumeMounts: []
+  # - name: something
+  #   mountPath: /mnt/something
+
+  ## Volumes that should be attached to pods
+  ##
+  extraVolumes: []
+  # - name: something
+  #   emptyDir: {}
+
+  extraLabels: {}
+  extraAnnotations: {}
+
+## eBPF Agent unit deployment configuration
+##
+agent:
+  image:
+    registry: "docker.io"
+    name: "wallarm/ebpf-agent"
+    tag: "0.0.3"
+    pullPolicy: IfNotPresent
+
+  ## Settings for automated rolling updates
+  ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#deploymentstrategy-v1-apps
+  ##
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0%
+
+  ## Labels to add to the pods
+  ##
+  podLabels: {}
+  # key: value
+
+  ## Annotations to add to the pods
+  ##
+  podAnnotations: {}
+  # key: value
+
+  ## Setting to allow this Pod to schedule onto nodes with matching taints
+  ## https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+  ##
+  tolerations: []
+  # - key: "key"
+  #   operator: "Equal|Exists"
+  #   value: "value"
+  #   effect: "NoSchedule|PreferNoSchedule"
+
+  ## Affinity and anti-affinity settings of this Pod
+  ## https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+  ##
+  ## Prefered podAntiAffinity will be applied if no one affinity configured
+  ##
+  affinity: {}
+  # podAntiAffinity:
+  #   preferredDuringSchedulingIgnoredDuringExecution:
+  #   - weight: 100
+  #     podAffinityTerm:
+  #       labelSelector:
+  #         matchExpressions:
+  #         - key: component
+  #           operator: In
+  #           values:
+  #           - mtls-router
+  #         - key: app
+  #           operator: In
+  #           values:
+  #           - mtls-router
+  #       topologyKey: kubernetes.io/hostname
+
+  ## Node selector (node labels) for pods
+  ## https://kubernetes.io/docs/user-guide/node-selection/
+  ##
+  nodeSelector:
+    kubernetes.io/os: linux
+
+  ## Lifecycle hooks
+  ## https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+  ##
+  lifecycle: {}
+
+  ## Grace period for the pods termination in seconds
+  ##
+  terminationGracePeriodSeconds: 30
+
+  ## PriorityClass name to apply to the pods
+  ## This setting indicates the importance of the pod relative to other pods
+  ## https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/
+  ##
+  priorityClassName: ""
+
+  ## Privileges and access controls for the container
+  ## https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+  ## https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#securitycontext-v1-core
+  ##
+  securityContext: {}
+
+  ## The number of resources required for the main container
+  ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  ##
+  resources: {}
+  # limits:
+  #   cpu: 250m
+  #   memory: 300Mi
+  # requests:
+  #   cpu: 50m
+  #   memory: 150Mi
+
+  ### Liveness probe for the container. Disabled by default
+  ###
+  livenessProbe: {}
+
+  ### Readiness probe for the container. Disabled by default
+  ###
+  readinessProbe: {}
+
+  ## Service Account for this Pod
+  ## https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+  ##
+  serviceAccount:
+    create: false
+
+    ## Name of the ServiceAccount. If creating not required then
+    ## this name must be a name of existing ServiceAccount object
+    ##
+    name: ""
+
+    ## Annotations for the created Service Account
+    ##
+    annotations: {}
+
+  ## Pod Disruption Budget settings
+  ## https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+  ##
+  podDisruptionBudget:
+    enabled: true
+    ### Select only one of these:
+    maxUnavailable: 0
+    # minAvailable: 1
+
+  extraEnvs: []
+  # - name: FOO
+  #   value: FOO
+  # - name: BAR
+  #   valueFrom:
+  #     secretKeyRef:
+  #       key: BAR
+  #       name: bar-secret
+
+  ## Additional init containers
+  ##
+  extraInitContainers: []
+  # - name: init
+  #   image: busybox
+  #   command: ['sh', '-c', 'until nslookup myservice; do echo waiting for myservice; sleep 2; done;']
+
+  ## Additional containers for this pods
+  ##
+  extraContainers: [ ]
+  # - name: some-container
+  #   image: some/image:latest
+  #   env:
+  #   - name: FOO
+  #     value: "123"
+  #   volumeMounts:
+  #   - name: bar-volume
+  #     mountPath: /mnt
+
+  ## Additional volumes that should be mounted to the main container
+  ##
+  extraVolumeMounts: []
+  # - name: something
+  #   mountPath: /mnt/something
+
+  ## Volumes that should be attached to pods
+  ##
+  extraVolumes: []
+  # - name: something
+  #   emptyDir: {}
+
+  extraLabels: {}
+  extraAnnotations: {}
+
+extraLabels: {}
+extraAnnotations: {}

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "aggregation.fullname" . }}
+  annotations:
+    {{- include "wallarm-oob.annotations" . | nindent 4 }}
+    {{- with .Values.aggregation.extraAnnotations }}
+    {{- . | toYaml | nindent 4 }}
+    {{- end }}
+  labels:
+    {{- include "aggregation.labels" . | nindent 4 }}
+data:
+  crontab: |
+    ### Aggregation service crontab
+    ###
+    {{- range $k, $v := .Values.aggregation.cron.config }}
+    # {{ $k }}
+    {{ $v.schedule }} timeout {{ $v.timeout }} {{ $v.command }}
+    {{- end }}
+    

@@ -1,0 +1,3 @@
+# Left blank to test default values
+processing:
+  replicaCount: 1

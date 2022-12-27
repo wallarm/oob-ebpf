@@ -1,0 +1,23 @@
+{{- if .Values.agent.podDisruptionBudget }}
+{{- if .Values.agent.podDisruptionBudget.enabled }}
+apiVersion: {{ template "podDisruptionBudget.apiVersion" . }}
+kind: PodDisruptionBudget
+metadata:
+  name: {{ template "agent.fullname" . }}
+  annotations:
+    {{- include "wallarm-oob.annotations" . | nindent 4 }}
+  labels:
+    {{- include "agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: "agent"
+spec:
+  selector:
+    matchLabels:
+      {{- include "agent.selectorLabels" . | nindent 6 }}
+  {{- with .Values.agent.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  {{- with .Values.agent.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
+{{- end }}
+{{- end }}

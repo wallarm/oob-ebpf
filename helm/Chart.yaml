@@ -1,0 +1,5 @@
+apiVersion: v2
+name: wallarm-oob
+appVersion: 4.4
+version: 0.0.1
+description: Wallarm out of band for Kubernetes

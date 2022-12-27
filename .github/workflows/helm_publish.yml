@@ -1,0 +1,25 @@
+name: Publish Helm
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        type: string
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+      - name: Publish Helm charts
+        uses: stefanprodan/helm-gh-pages@master
+        with:
+          token: ${{ secrets.HELM_PUBLISH_TOKEN }}
+          charts_dir: .
+          charts_url: https://charts.wallarm.com
+          linting: off
+          repository: helm-charts
+          branch: main
+          target_dir: oob-ebpf
+          index_dir: .
+          chart_version: "${{ github.event.inputs.version }}"

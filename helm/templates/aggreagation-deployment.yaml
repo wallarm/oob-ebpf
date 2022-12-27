@@ -1,0 +1,271 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "aggregation.fullname" . }}
+  annotations:
+    {{- include "aggregation.annotations" . | nindent 4 }}
+  labels:
+    {{- include "aggregation.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.aggregation.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+  {{- with .Values.aggregation.updateStrategy }}
+  strategy: {{ . | toYaml | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "aggregation.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ index (include (print .Template.BasePath "/aggregation-configmap.yaml") . | fromYaml) "data" | toYaml | sha256sum }}
+        checksum/credentials: {{ index (include (print .Template.BasePath "/shared-secret.yaml") . | fromYaml) "data" | toYaml | sha256sum }}
+        {{- include "aggregation.annotations" . | nindent 8 }}
+        {{- with .Values.aggregation.podAnnotations }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "aggregation.labels" . | nindent 8 }}
+        {{- with .Values.aggregation.podLabels }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- if .Values.aggregation.serviceAccount.create }}
+      serviceAccountName: {{ include "aggregation.fullname" . }}
+      {{- else }}
+      automountServiceAccountToken: false
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.aggregation.terminationGracePeriodSeconds | default 30 }}
+      {{- with .Values.aggregation.nodeSelector }}
+      nodeSelector: {{ . | toYaml | nindent 8 }}
+      {{- end }}
+      {{- with .Values.aggregation.tolerations }}
+      tolerations: {{ . | toYaml | nindent 8 }}
+      {{- end }}
+      {{- with .Values.aggregation.affinity }}
+      affinity: {{ . | toYaml | nindent 8 }}
+      {{- end }}
+      {{- with .Values.aggregation.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{ . | toYaml | nindent 8 }}
+      {{- end }}
+      {{- with .Values.aggregation.extraInitContainers }}
+      initContainers: {{ . | toYaml | nindent 8 }}
+      {{- end }}
+      initContainers:
+      - name: init
+        image: {{ include "image" .Values.aggregation.init.image }}
+        imagePullPolicy: {{ .Values.aggregation.init.image.pullPolicy }}
+        command:
+          - sh
+          - -c
+          - >
+            /opt/wallarm/ruby/usr/share/wallarm-common/synccloud --one-time &&
+            /opt/wallarm/ruby/usr/share/wallarm-common/sync-ip-lists --one-time -l STDOUT &&
+            /opt/wallarm/ruby/usr/share/wallarm-common/sync-ip-lists-source --one-time -l STDOUT;
+            timeout 10m /opt/wallarm/ruby/usr/share/wallarm-common/export-environment -l STDOUT
+        env:
+        - name: WALLARM_COMPONENT_NAME
+          value: wallarm-oob
+        - name: WALLARM_COMPONENT_VERSION
+          value: {{ .Chart.Version | quote }}
+        {{- include "wallarm-oob.credentials" . | nindent 8 }}
+        {{- with .Values.aggregation.init.extraEnvs }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+        {{- with .Values.aggregation.init.livenessProbe }}
+        livenessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.aggregation.init.readinessProbe }}
+        readinessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.aggregation.init.lifecycle }}
+        lifecycle: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        securityContext:
+        {{- if .Values.aggregation.init.securityContext }}
+        {{- .Values.aggregation.init.securityContext | toYaml | nindent 10 }}
+        {{- else }}
+        {{ include "wallarm-oob.defaultSecurityContext" . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.aggregation.init.resources }}
+        resources: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+          - mountPath: /etc/wallarm
+            name: wallarm
+          - mountPath: /var/lib/wallarm-acl
+            name: wallarm-acl
+        {{- with .Values.aggregation.init.extraVolumeMounts }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+      containers:
+      - name: tarantool
+        image: {{ include "image" .Values.aggregation.tarantool.image }}
+        imagePullPolicy: {{ .Values.aggregation.tarantool.image.pullPolicy }}
+        args:
+          {{- with .Values.aggregation.tarantool.extraArgs }}
+          {{ . | toYaml | nindent 10 }}
+          {{- end }}
+        env:
+        - name: SLAB_ALLOC_ARENA
+          value: {{ .Values.config.aggregation.tarantoolMemory | quote }}
+        {{- with .Values.aggregation.tarantool.extraEnvs }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+        ports:
+          - name: tarantool
+            containerPort: 3313
+            protocol: TCP
+        {{- with .Values.aggregation.tarantool.livenessProbe }}
+        livenessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.aggregation.tarantool.readinessProbe }}
+        readinessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.aggregation.tarantool.lifecycle }}
+        lifecycle: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        securityContext:
+        {{- if .Values.aggregation.tarantool.securityContext -}}
+        {{ .Values.aggregation.tarantool.securityContext | toYaml | nindent 10 }}
+        {{- else }}
+        {{ include "wallarm-oob.defaultSecurityContext" . | nindent 10 }}
+        {{- end -}}
+        {{- with .Values.aggregation.tarantool.resources }}
+        resources: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.aggregation.tarantool.extraVolumeMounts }}
+        volumeMounts:
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+
+      - name: cron
+        image: {{ include "image" .Values.aggregation.cron.image }}
+        imagePullPolicy: {{ .Values.aggregation.cron.image.pullPolicy }}
+        command: ["/bin/dumb-init", "--"]
+        args: ["/bin/supercronic", "-json", "/opt/cron/crontab"]
+        env:
+          - name: WALLARM_COMPONENT_NAME
+            value: wallarm-oob
+          - name: WALLARM_COMPONENT_VERSION
+            value: {{ .Chart.Version | quote }}
+        {{- with .Values.aggregation.cron.extraEnvs }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+        {{- with .Values.aggregation.cron.livenessProbe }}
+        livenessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.aggregation.cron.readinessProbe }}
+        readinessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.aggregation.cron.lifecycle }}
+        lifecycle: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        securityContext:
+        {{- if .Values.aggregation.cron.securityContext }}
+        {{- .Values.aggregation.cron.securityContext | toYaml | nindent 10 }}
+        {{- else }}
+        {{ include "wallarm-oob.defaultSecurityContext" . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.aggregation.cron.resources }}
+        resources: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+          - name: wallarm
+            mountPath: /etc/wallarm
+          - name: wallarm-acl
+            mountPath: /var/lib/wallarm-acl
+          - name: cron-config
+            mountPath: /opt/cron/crontab
+            subPath: crontab
+            readOnly: true
+        {{- with .Values.aggregation.cron.extraVolumeMounts }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+
+      - name: heartbeat
+        image: {{ include "image" .Values.aggregation.heartbeat.image }}
+        imagePullPolicy: {{ .Values.aggregation.heartbeat.image.pullPolicy }}
+        command: ["/bin/dumb-init", "--"]
+        args: ["/opt/wallarm/ruby/usr/share/wallarm-common/syncnode", "-p", "-r", "120", "-l", "STDOUT", "-L", "DEBUG"]
+        env:
+        - name: WALLARM_SYNCNODE
+          value: "no"
+        {{- include "wallarm-oob.credentials" . | nindent 8 }}
+        {{- with .Values.aggregation.heartbeat.extraEnvs }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+        {{- with .Values.aggregation.heartbeat.livenessProbe }}
+        livenessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.aggregation.heartbeat.readinessProbe }}
+        readinessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.aggregation.heartbeat.lifecycle }}
+        lifecycle: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        securityContext:
+        {{- if .Values.aggregation.heartbeat.securityContext }}
+        {{- .Values.aggregation.heartbeat.securityContext | toYaml | nindent 10 }}
+        {{- else }}
+        {{ include "wallarm-oob.defaultSecurityContext" . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.aggregation.heartbeat.resources }}
+        resources: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: wallarm
+          mountPath: /etc/wallarm
+        {{- with .Values.aggregation.heartbeat.extraVolumeMounts }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+
+      - name: app-structure
+        image: {{ include "image" .Values.aggregation.appStructure.image }}
+        imagePullPolicy: {{ .Values.aggregation.appStructure.image.pullPolicy }}
+        {{- with .Values.aggregation.appStructure.extraEnvs }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+        {{- with .Values.aggregation.appStructure.livenessProbe }}
+        livenessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.aggregation.appStructure.readinessProbe }}
+        readinessProbe: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        {{- with .Values.aggregation.appStructure.lifecycle }}
+        lifecycle: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        securityContext:
+        {{- if .Values.aggregation.appStructure.securityContext }}
+        {{- .Values.aggregation.appStructure.securityContext | toYaml | nindent 10 }}
+        {{- else }}
+        {{ include "wallarm-oob.defaultSecurityContext" . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.aggregation.appStructure.resources }}
+        resources: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: wallarm
+          mountPath: /etc/wallarm
+        {{- with .Values.aggregation.appStructure.extraVolumeMounts }}
+        {{- . | toYaml | nindent 8 }}
+        {{- end }}
+
+      {{- with .Values.aggregation.extraContainers }}
+      {{- . | toYaml | nindent 6 }}
+      {{- end }}
+
+      volumes:
+        - name: wallarm
+          emptyDir: {}
+        - name: wallarm-acl
+          emptyDir: {}
+        - name: cron-config
+          configMap:
+            name: {{ template "aggregation.fullname" . }}
+      {{- with .Values.aggregation.extraVolumes }}
+      {{- . | toYaml | nindent 6 }}
+      {{- end }}

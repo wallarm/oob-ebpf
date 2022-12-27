@@ -1,0 +1,100 @@
+aggregation:
+  init:
+    resources:
+      requests:
+        memory: 32Mi
+        cpu: 100m
+      limits:
+        memory: 128i
+        cpu: 300m
+  cron:
+    resources:
+      requests:
+        memory: 32Mi
+        cpu: 50m
+      limits:
+        memory: 128Mi
+        cpu: 200m
+  tarantool:
+    resources:
+      requests:
+        memory: 128Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: 400m
+  heartbeat:
+    resources:
+      requests:
+        memory: 32Mi
+        cpu: 50m
+      limits:
+        memory: 128Mi
+        cpu: 200m
+  appStructure:
+    resources:
+      requests:
+        memory: 32Mi
+        cpu: 50m
+      limits:
+        memory: 128Mi
+        cpu: 200m
+  antiBot:
+    resources:
+      requests:
+        memory: 32Mi
+        cpu: 50m
+      limits:
+        memory: 128Mi
+        cpu: 200m
+
+processing:
+  init:
+    resources:
+      requests:
+        memory: 32Mi
+        cpu: 100m
+      limits:
+        memory: 128i
+        cpu: 300m
+  node:
+    resources:
+      requests:
+        memory: 128Mi
+        cpu: 150m
+      limits:
+        memory: 256i
+        cpu: 300m
+  cron:
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 100m
+      limits:
+        memory: 128Mi
+        cpu: 200m
+  collectd:
+    resources:
+      requests:
+        memory: 32Mi
+        cpu: 50m
+      limits:
+        memory: 64Mi
+        cpu: 100m
+  syncnode:
+    resources:
+      requests:
+        memory: 32Mi
+        cpu: 50m
+      limits:
+        memory: 64Mi
+        cpu: 100m
+
+agent:
+  resources:
+    requests:
+      memory: 32Mi
+      cpu: 50m
+    limits:
+      memory: 256Mi
+      cpu: 200m

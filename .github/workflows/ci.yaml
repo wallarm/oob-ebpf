@@ -23,7 +23,7 @@ jobs:
       helm: ${{ steps.filter.outputs.helm}}
     steps:
       - name: Checkout
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.0.2
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.0.2
 
       - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.10.2
         id: filter
@@ -45,7 +45,7 @@ jobs:
         k8s: [v1.23.13, v1.24.7, v1.25.3]
     steps:
       - name: Checkout
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.0.2
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.0.2
 
       - name: Create cluster
         run: kind create cluster --kubeconfig ${KUBECONFIG} --image kindest/node:${{ matrix.k8s }}
@@ -73,7 +73,7 @@ jobs:
     if: needs.changes.outputs.helm == 'true'
     steps:
       - name: Checkout
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.0.2
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.0.2
 
       - name: Create cluster
         run: kind create cluster --kubeconfig ${KUBECONFIG} --image kindest/node:v1.24.7

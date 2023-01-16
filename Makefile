@@ -5,6 +5,10 @@
 
 DIR = $(shell cd "$$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
+ifeq ($(CI),true)
+  	undefine KUBERNETES_SERVICE_HOST
+endif
+
 VM_NAME    ?= k8s
 CONFIG_DIR ?= ${HOME}/.lima/$(VM_NAME)/conf
 KUBECONFIG ?= $(CONFIG_DIR)/kubeconfig.yaml
@@ -26,7 +30,7 @@ env-init:
 	$(KUBECTL_CMD) get nodes
 
 env-get-config:
-	@[ -d $(CONFIG_DIR) ] || mkdir mkdir $(CONFIG_DIR)
+	@[ -d $(CONFIG_DIR) ] || mkdir $(CONFIG_DIR)
 	$(SHELL_CMD) cat /etc/kubernetes/admin.conf > $(KUBECONFIG)
 	@echo "Execute: export KUBECONFIG=$(KUBECONFIG)"
 
@@ -54,7 +58,7 @@ env-k9s:
 ### Helm routines
 ###
 HELM_EXTRA_ARGS +=
-HELM_TEST_IMAGE += "quay.io/dmitriev/chart-testing:latest-amd64"
+HELM_TEST_IMAGE += quay.io/dmitriev/chart-testing:latest-amd64
 HELM_ARGS := --set config.api.token=${WALLARM_API_TOKEN} $(HELM_EXTRA_ARGS)
 
 helm-template:

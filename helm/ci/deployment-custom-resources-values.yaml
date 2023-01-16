@@ -93,8 +93,8 @@ processing:
 agent:
   resources:
     requests:
-      memory: 32Mi
-      cpu: 50m
+      memory: 64Mi
+      cpu: 100m
     limits:
       memory: 256Mi
-      cpu: 200m
+      cpu: 400m

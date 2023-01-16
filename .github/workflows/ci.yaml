@@ -5,6 +5,11 @@ on:
     branches: ['main']
     types: ['opened', 'reopened', 'synchronize']
   workflow_dispatch:
+    inputs:
+      run_tests:
+        description: 'Force tests to run'
+        required: false
+        type: boolean
 
 env:
   KUBECONFIG: /home/runner/.kube/config
@@ -36,19 +41,20 @@ jobs:
 
   smoke:
     name: Smoke
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - changes
-    if: needs.changes.outputs.helm == 'true'
+    if: needs.changes.outputs.helm == 'true' || ${{ inputs.run_tests }}
     strategy:
       matrix:
-        k8s: [v1.23.13, v1.24.7, v1.25.3]
+        k8s: [v1.23.13, v1.24.7, v1.25.3, v1.26.0]
     steps:
       - name: Checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.0.2
 
       - name: Create cluster
-        run: kind create cluster --kubeconfig ${KUBECONFIG} --image kindest/node:${{ matrix.k8s }}
+        run: |
+          kind create cluster --kubeconfig ${KUBECONFIG} --image kindest/node:${{ matrix.k8s }}
 
       - name: Install chart
         env:
@@ -58,19 +64,21 @@ jobs:
       - name: Run smoke tests
         env:
           KIND_CLUSTER_NAME: kind
-          USER_UUID: ${{ secrets.WALLARM_API_USER_UUID }}
-          USER_SECRET: ${{ secrets.WALLARM_API_USER_SECRET }}
-          CLIENT_ID: 4
+          WALLARM_USER_UUID: ${{ secrets.WALLARM_API_USER_UUID }}
+          WALLARM_USER_SECRET: ${{ secrets.WALLARM_API_USER_SECRET }}
+          WALLARM_CLIENT_ID: 4
         run: |
+          uname -a
+          uname -r
           echo ${{ secrets.GITLAB_TOKEN_SECRET }} | docker login -u ${{ secrets.GITLAB_TOKEN_NAME }} --password-stdin dkr.wallarm.com
           make smoke-test
 
   helm-install:
     name: Helm install
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - changes
-    if: needs.changes.outputs.helm == 'true'
+    if: needs.changes.outputs.helm == 'true' || ${{ inputs.run_tests }}
     steps:
       - name: Checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.0.2
@@ -81,6 +89,6 @@ jobs:
       - name: Run chart tests
         env:
           WALLARM_API_TOKEN: ${{ secrets.WALLARM_API_TOKEN }}
-        run: make helm-test
-
-
+        run: |
+          uname -r
+          make helm-test

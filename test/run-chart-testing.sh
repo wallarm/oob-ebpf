@@ -9,9 +9,10 @@ if [[ "${CI:-false}" == "false" ]]; then
   PROJECT_DIR="/project"
   KUBECONFIG="/etc/kubernetes/admin.conf"
 else
-  PROJECT_DIR="${DIR}"
+  PROJECT_DIR="${CURDIR}"
   DOCKER_CMD="docker"
 fi
+
 
 ${DOCKER_CMD} run \
   --rm \

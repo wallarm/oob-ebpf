@@ -15,6 +15,8 @@ SMOKE_PYTEST_ARGS=$(echo "${SMOKE_PYTEST_ARGS:---allure-features=MonitoringMode}
 SMOKE_PYTEST_WORKERS="${SMOKE_PYTEST_WORKERS:-1}"
 SMOKE_HOSTNAME_OLD_NODE="${SMOKE_HOSTNAME_OLD_NODE:-smoke-tests-old-node}"
 
+WORKLOAD_NS="test-oob-ebpf"
+
 declare -a mandatory
 mandatory=(
   WALLARM_CLIENT_ID
@@ -38,13 +40,12 @@ if [[ "${CI:-false}" == "false" ]]; then
   trap 'kubectl delete pod pytest --now  --ignore-not-found' EXIT ERR
   # Colorize pytest output if run locally
   EXEC_ARGS="--tty --stdin"
+  CURDIR="/project"
 else
   EXEC_ARGS="--tty"
 fi
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
-KIND_CLUSTER_IMAGES=$(docker exec -it "${KIND_CLUSTER_NAME}"-control-plane crictl images -o yaml)
+KIND_CLUSTER_IMAGES=$(docker exec -i "${KIND_CLUSTER_NAME}"-control-plane crictl images -o yaml)
 if echo "${KIND_CLUSTER_IMAGES}" | grep -q "$SMOKE_SUITE_IMAGE"; then
   echo "Docker image ${SMOKE_SUITE_IMAGE} already present in Kind cluster ${KIND_CLUSTER_NAME}"
 else
@@ -54,20 +55,24 @@ else
   kind load docker-image --name="${KIND_CLUSTER_NAME}" "${SMOKE_SUITE_IMAGE}" > /dev/null
 fi
 
+echo "Deploying test workload ..."
+kubectl create namespace "${WORKLOAD_NS}"
+kubectl -n "${WORKLOAD_NS}" apply -f "${CURDIR}/test/workload.yaml"
+kubectl -n "${WORKLOAD_NS}" wait --for=condition=Ready pods --all --timeout=60s
+
+echo "Retrieving test workload URL ..."
+WORKLOAD_SVC=$(kubectl -n "${WORKLOAD_NS}" get svc -l "app=workload" -o=jsonpath='{.items[0].metadata.name}')
+WORKLOAD_URL="http://${WORKLOAD_SVC}.${WORKLOAD_NS}.svc"
+echo "Test workload URL: ${WORKLOAD_URL}"
+
 echo "Retrieving Wallarm Node UUID ..."
 NODE_POD=$(kubectl get pod -l "app.kubernetes.io/component=processing" -o=jsonpath='{.items[0].metadata.name}')
 NODE_UUID=$(kubectl logs "${NODE_POD}" -c init | grep 'Registered new instance' | tail -c 36)
 echo "Wallarm Node UUID: ${NODE_UUID}"
 
-#TODO When ebpf-agent will be ready, we need to deploy test workload here and get its service address instead
-echo "Retrieving Wallarm Node URL ..."
-NODE_SVC=$(kubectl get svc -l "app.kubernetes.io/component=processing" -o=jsonpath='{.items[0].metadata.name}')
-NODE_URL="http://${NODE_SVC}.default.svc"
-echo "Wallarm Node URL: ${NODE_URL}"
-
 echo "Deploying pytest pod ..."
 kubectl run pytest \
-  --env="NODE_BASE_URL=${NODE_URL}" \
+  --env="NODE_BASE_URL=${WORKLOAD_URL}" \
   --env="NODE_UUID=${NODE_UUID}" \
   --env="WALLARM_API_HOST=${WALLARM_API_HOST}" \
   --env="API_CA_VERIFY=${WALLARM_API_CA_VERIFY}" \

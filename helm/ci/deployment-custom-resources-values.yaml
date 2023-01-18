@@ -5,7 +5,7 @@ aggregation:
         memory: 32Mi
         cpu: 100m
       limits:
-        memory: 128i
+        memory: 128Mi
         cpu: 300m
   cron:
     resources:
@@ -55,7 +55,7 @@ processing:
         memory: 32Mi
         cpu: 100m
       limits:
-        memory: 128i
+        memory: 128Mi
         cpu: 300m
   node:
     resources:
@@ -63,7 +63,7 @@ processing:
         memory: 128Mi
         cpu: 150m
       limits:
-        memory: 256i
+        memory: 256Mi
         cpu: 300m
   cron:
     resources:
@@ -93,8 +93,8 @@ processing:
 agent:
   resources:
     requests:
-      memory: 32Mi
-      cpu: 50m
+      memory: 64Mi
+      cpu: 100m
     limits:
       memory: 256Mi
-      cpu: 200m
+      cpu: 400m

@@ -4,14 +4,12 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-#TODO handler for CI
 if [[ "${CI:-false}" == "false" ]]; then
-  PROJECT_DIR="/project"
-  KUBECONFIG="/etc/kubernetes/admin.conf"
+  CURDIR="/project"
 else
-  PROJECT_DIR="${DIR}"
   DOCKER_CMD="docker"
 fi
+
 
 ${DOCKER_CMD} run \
   --rm \
@@ -19,7 +17,7 @@ ${DOCKER_CMD} run \
   --network host \
   --name chart-testing \
   --volume ${KUBECONFIG}:/root/.kube/config \
-  --volume ${PROJECT_DIR}:/workdir \
+  --volume ${CURDIR}:/workdir \
   --workdir /workdir \
   ${HELM_TEST_IMAGE} ct install \
       --charts helm \

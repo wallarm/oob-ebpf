@@ -3,8 +3,6 @@
 -include .env
 .EXPORT_ALL_VARIABLES:
 
-DIR = $(shell cd "$$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-
 ifeq ($(CI),true)
   	undefine KUBERNETES_SERVICE_HOST
 endif

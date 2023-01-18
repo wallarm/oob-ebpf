@@ -147,7 +147,7 @@ processing:
     image:
       registry: "docker.io"
       name: "wallarm/ingress-ruby"
-      tag: "4.4.0-1"
+      tag: "4.4.1-1"
       pullPolicy: IfNotPresent
 
     extraEnvs: []
@@ -197,9 +197,9 @@ processing:
 
   node:
     image:
-      registry: "quay.io"
-      name: "dmitriev/ingress-nginx"
-      tag: "4.4.1-test"
+      registry: "docker.io"
+      name: "wallarm/ingress-nginx"
+      tag: "4.4.1-1"
       pullPolicy: IfNotPresent
 
     ## Additional environment variables to pass to the container
@@ -269,7 +269,7 @@ processing:
     image:
       registry: "docker.io"
       name: "wallarm/ingress-ruby"
-      tag: "4.4.0-1"
+      tag: "4.4.1-1"
       pullPolicy: IfNotPresent
 
     ### Cron jobs configuration
@@ -341,7 +341,7 @@ processing:
     image:
       registry: "docker.io"
       name: "wallarm/ingress-collectd"
-      tag: "4.4.0-1"
+      tag: "4.4.1-1"
       pullPolicy: IfNotPresent
 
     extraEnvs: []
@@ -393,7 +393,7 @@ processing:
     image:
       registry: "docker.io"
       name: "wallarm/ingress-ruby"
-      tag: "4.4.0-1"
+      tag: "4.4.1-1"
       pullPolicy: IfNotPresent
 
     extraEnvs: []
@@ -647,7 +647,7 @@ aggregation:
     image:
       registry: "docker.io"
       name: "wallarm/ingress-ruby"
-      tag: "4.4.0-1"
+      tag: "4.4.1-1"
       pullPolicy: IfNotPresent
 
     extraEnvs: []
@@ -699,7 +699,7 @@ aggregation:
     image:
       registry: "docker.io"
       name: "wallarm/ingress-ruby"
-      tag: "4.4.0-1"
+      tag: "4.4.1-1"
       pullPolicy: IfNotPresent
 
     ### Cron jobs configuration
@@ -779,7 +779,7 @@ aggregation:
     image:
       registry: "docker.io"
       name: "wallarm/ingress-tarantool"
-      tag: "4.4.0-1"
+      tag: "4.4.1-1"
       pullPolicy: IfNotPresent
 
     extraEnvs: []
@@ -845,7 +845,7 @@ aggregation:
     image:
       registry: "docker.io"
       name: "wallarm/ingress-ruby"
-      tag: "4.4.0-1"
+      tag: "4.4.1-1"
       pullPolicy: IfNotPresent
 
     extraEnvs: []
@@ -897,7 +897,7 @@ aggregation:
     image:
       registry: "docker.io"
       name: "wallarm/ingress-python"
-      tag: "4.4.0-1"
+      tag: "4.4.1-1"
       pullPolicy: IfNotPresent
 
     extraEnvs: []
@@ -949,7 +949,7 @@ aggregation:
     image:
       registry: "docker.io"
       name: "wallarm/ingress-python"
-      tag: "4.4.0-1"
+      tag: "4.4.1-1"
       pullPolicy: IfNotPresent
 
     extraEnvs: []
@@ -1124,7 +1124,7 @@ agent:
   image:
     registry: "docker.io"
     name: "wallarm/ebpf-agent"
-    tag: "0.0.3"
+    tag: "0.1.0"
     pullPolicy: IfNotPresent
 
   ## Settings for automated rolling updates

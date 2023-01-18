@@ -68,8 +68,6 @@ jobs:
           WALLARM_USER_SECRET: ${{ secrets.WALLARM_API_USER_SECRET }}
           WALLARM_CLIENT_ID: 4
         run: |
-          uname -a
-          uname -r
           echo ${{ secrets.GITLAB_TOKEN_SECRET }} | docker login -u ${{ secrets.GITLAB_TOKEN_NAME }} --password-stdin dkr.wallarm.com
           make smoke-test
 
@@ -89,6 +87,4 @@ jobs:
       - name: Run chart tests
         env:
           WALLARM_API_TOKEN: ${{ secrets.WALLARM_API_TOKEN }}
-        run: |
-          uname -r
-          make helm-test
+        run: make helm-test

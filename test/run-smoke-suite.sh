@@ -45,14 +45,24 @@ else
   EXEC_ARGS="--tty"
 fi
 
-KIND_CLUSTER_IMAGES=$(docker exec -i "${KIND_CLUSTER_NAME}"-control-plane crictl images -o yaml)
-if echo "${KIND_CLUSTER_IMAGES}" | grep -q "$SMOKE_SUITE_IMAGE"; then
-  echo "Docker image ${SMOKE_SUITE_IMAGE} already present in Kind cluster ${KIND_CLUSTER_NAME}"
+
+if [[ "${KIND_LOAD:-false}" == "false" ]]; then
+  IMAGE_PULL_POLICY="IfNotPresent"
+  IMAGE_PULL_SECRETS="[{\"name\": \"${IMAGE_PULL_SECRET_NAME}\"}]"
+
 else
-  echo "Pulling Docker image ${SMOKE_SUITE_IMAGE} ..."
-  docker pull --quiet "${SMOKE_SUITE_IMAGE}" > /dev/null
-  echo "Loading Docker image ${SMOKE_SUITE_IMAGE} to Kind cluster ${KIND_CLUSTER_NAME} ..."
-  kind load docker-image --name="${KIND_CLUSTER_NAME}" "${SMOKE_SUITE_IMAGE}" > /dev/null
+  KIND_CLUSTER_IMAGES=$(docker exec -i "${KIND_CLUSTER_NAME}"-control-plane crictl images -o yaml)
+  if echo "${KIND_CLUSTER_IMAGES}" | grep -q "$SMOKE_SUITE_IMAGE"; then
+    echo "Docker image ${SMOKE_SUITE_IMAGE} already present in Kind cluster ${KIND_CLUSTER_NAME}"
+  else
+    echo "Pulling Docker image ${SMOKE_SUITE_IMAGE} ..."
+    docker pull --quiet "${SMOKE_SUITE_IMAGE}" > /dev/null
+    echo "Loading Docker image ${SMOKE_SUITE_IMAGE} to Kind cluster ${KIND_CLUSTER_NAME} ..."
+    kind load docker-image --name="${KIND_CLUSTER_NAME}" "${SMOKE_SUITE_IMAGE}" > /dev/null
+  fi
+
+  IMAGE_PULL_POLICY="Never"
+  IMAGE_PULL_SECRETS="[]"
 fi
 
 echo "Deploying test workload ..."
@@ -81,10 +91,10 @@ kubectl run pytest \
   --env="USER_SECRET=${WALLARM_USER_SECRET}" \
   --env="HOSTNAME_OLD_NODE=${SMOKE_HOSTNAME_OLD_NODE}" \
   --image="${SMOKE_SUITE_IMAGE}" \
-  --image-pull-policy=Never \
+  --image-pull-policy=${IMAGE_PULL_POLICY} \
   --pod-running-timeout=1m0s \
   --restart=Never \
-  --overrides='{"apiVersion": "v1", "spec":{"terminationGracePeriodSeconds": 0}}' \
+  --overrides='{"apiVersion": "v1", "spec":{"terminationGracePeriodSeconds": 0, "imagePullSecrets": '"${IMAGE_PULL_SECRETS}"'}}' \
   --command -- sleep infinity
 
 kubectl wait --for=condition=Ready pods --all --timeout=60s

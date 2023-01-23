@@ -58,8 +58,10 @@ spec:
         image: {{ include "image" .Values.agent.image }}
         imagePullPolicy: {{ .Values.agent.image.pullPolicy }}
         args:
-          - -target-addr
+          - --target-addr
           - "{{ template "processing.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.processing.service.port }}"
+          - --proc-path
+          - "/tmp/proc"
         env:
         {{- with .Values.agent.extraEnvs }}
         {{- . | toYaml | nindent 8 }}
@@ -83,10 +85,8 @@ spec:
         resources: {{ . | toYaml | nindent 10 }}
         {{- end }}
         volumeMounts:
-        - name: sys
-          mountPath: /sys
-        - name: proc
-          mountPath: /hostproc
+        - name: hostproc
+          mountPath: /tmp/proc
         {{- with .Values.agent.extraVolumeMounts }}
         {{- . | toYaml | nindent 8 }}
         {{- end }}
@@ -94,12 +94,9 @@ spec:
       {{- . | toYaml | nindent 6 }}
       {{- end }}
       volumes:
-      - name: proc
+      - name: hostproc
         hostPath:
           path: /proc
-      - name: sys
-        hostPath:
-          path: /sys
       {{- with .Values.agent.extraVolumes }}
       {{- . | toYaml | nindent 6 }}
       {{- end }}

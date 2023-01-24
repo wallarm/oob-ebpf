@@ -4,13 +4,16 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-export KIND_CLUSTER_NAME=${KIND_CLUSTER_NAME:-wallarm-oob}
-export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/kind-config-$KIND_CLUSTER_NAME}"
+# Variables required for pulling Docker image with smoke tests
+REGISTRY_NAME="dkr.wallarm.com"
+IMAGE_PULL_SECRET_NAME="wallarm-registry-creds"
 
+# Variables required for smoke test
 WALLARM_API_HOST="${WALLARM_API_HOST:-api.wallarm.com}"
 WALLARM_API_CA_VERIFY="${WALLARM_API_CA_VERIFY:-true}"
+WALLARM_CLIENT_ID="${WALLARM_CLIENT_ID:-4}"
 
-SMOKE_SUITE_IMAGE="${SMOKE_SUITE_IMAGE:-"dkr.wallarm.com/tests/smoke-tests:latest"}"
+SMOKE_SUITE_IMAGE="${SMOKE_SUITE_IMAGE:-"${REGISTRY_NAME}/tests/smoke-tests:latest"}"
 SMOKE_PYTEST_ARGS=$(echo "${SMOKE_PYTEST_ARGS:---allure-features=MonitoringMode}" | xargs)
 SMOKE_PYTEST_WORKERS="${SMOKE_PYTEST_WORKERS:-1}"
 SMOKE_HOSTNAME_OLD_NODE="${SMOKE_HOSTNAME_OLD_NODE:-smoke-tests-old-node}"
@@ -19,7 +22,6 @@ WORKLOAD_NS="test-oob-ebpf"
 
 declare -a mandatory
 mandatory=(
-  WALLARM_CLIENT_ID
   WALLARM_USER_UUID
   WALLARM_USER_SECRET
 )
@@ -37,33 +39,26 @@ if [ "$missing" = true ]; then
 fi
 
 if [[ "${CI:-false}" == "false" ]]; then
-  trap 'kubectl delete pod pytest --now  --ignore-not-found' EXIT ERR
+  trap 'kubectl delete pod pytest --now --ignore-not-found' EXIT ERR
   # Colorize pytest output if run locally
   EXEC_ARGS="--tty --stdin"
   CURDIR="/project"
+  #TODO Handle uploading image with smoke-tests to Lima VM (k8s.io namespace)
+  IMAGE_PULL_POLICY="Never"
+  IMAGE_PULL_SECRETS="[]"
 else
   EXEC_ARGS="--tty"
-fi
-
-
-if [[ "${KIND_LOAD:-false}" == "false" ]]; then
   IMAGE_PULL_POLICY="IfNotPresent"
   IMAGE_PULL_SECRETS="[{\"name\": \"${IMAGE_PULL_SECRET_NAME}\"}]"
 
-else
-  KIND_CLUSTER_IMAGES=$(docker exec -i "${KIND_CLUSTER_NAME}"-control-plane crictl images -o yaml)
-  if echo "${KIND_CLUSTER_IMAGES}" | grep -q "$SMOKE_SUITE_IMAGE"; then
-    echo "Docker image ${SMOKE_SUITE_IMAGE} already present in Kind cluster ${KIND_CLUSTER_NAME}"
-  else
-    echo "Pulling Docker image ${SMOKE_SUITE_IMAGE} ..."
-    docker pull --quiet "${SMOKE_SUITE_IMAGE}" > /dev/null
-    echo "Loading Docker image ${SMOKE_SUITE_IMAGE} to Kind cluster ${KIND_CLUSTER_NAME} ..."
-    kind load docker-image --name="${KIND_CLUSTER_NAME}" "${SMOKE_SUITE_IMAGE}" > /dev/null
-  fi
-
-  IMAGE_PULL_POLICY="Never"
-  IMAGE_PULL_SECRETS="[]"
+  echo "Creating secret ${IMAGE_PULL_SECRET_NAME} with registry credentials ..."
+  kubectl create secret docker-registry ${IMAGE_PULL_SECRET_NAME} \
+    --docker-server="${REGISTRY_NAME}" \
+    --docker-username="${REGISTRY_TOKEN_NAME}" \
+    --docker-password="${REGISTRY_TOKEN_SECRET}" \
+    --docker-email=docker-pull@unexists.unexists
 fi
+
 
 echo "Deploying test workload ..."
 kubectl create namespace "${WORKLOAD_NS}"

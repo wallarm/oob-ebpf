@@ -6,8 +6,24 @@ on:
     types: ['opened', 'reopened', 'synchronize']
   workflow_dispatch:
     inputs:
-      run_tests:
-        description: 'Force tests to run'
+      run_all_tests:
+        description: 'Force tests to run all tests'
+        required: false
+        type: boolean
+      run_helm_test:
+        description: 'Run Helm test'
+        required: false
+        type: boolean
+      run_kind_test:
+        description: 'Run Kind test'
+        required: false
+        type: boolean
+      run_azure_test:
+        description: 'Run Azure test to run all'
+        required: false
+        type: boolean
+      run_gcp_test:
+        description: 'Force GCP test to run all'
         required: false
         type: boolean
 
@@ -39,12 +55,30 @@ jobs:
               - 'helm/Chart.yaml'
               - 'helm/**/*'
 
-  smoke:
+  helm-install:
+    name: Helm install
+    runs-on: ubuntu-22.04
+    needs:
+      - changes
+    if: (needs.changes.outputs.helm == 'true') || ${{ inputs.run_all_tests }} || ${{ inputs.run_helm_test }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.0.2
+
+      - name: Create cluster
+        run: kind create cluster --kubeconfig ${KUBECONFIG} --image kindest/node:v1.24.7
+
+      - name: Run chart tests
+        env:
+          WALLARM_API_TOKEN: ${{ secrets.WALLARM_API_TOKEN }}
+        run: make helm-test
+
+  kind:
     name: Kind test
     runs-on: ubuntu-22.04
     needs:
       - changes
-    if: needs.changes.outputs.helm == 'true' || ${{ inputs.run_tests }}
+    if: (needs.changes.outputs.helm == 'true') || ${{ inputs.run_all_tests }} || ${{ inputs.run_kind_test }}
     strategy:
       matrix:
         k8s: [v1.23.13, v1.24.7, v1.25.3, v1.26.0]
@@ -63,21 +97,18 @@ jobs:
 
       - name: Run smoke tests
         env:
-          KIND_LOAD: true
-          KIND_CLUSTER_NAME: kind
           WALLARM_USER_UUID: ${{ secrets.WALLARM_API_USER_UUID }}
           WALLARM_USER_SECRET: ${{ secrets.WALLARM_API_USER_SECRET }}
-          WALLARM_CLIENT_ID: 4
-        run: |
-          echo ${{ secrets.GITLAB_TOKEN_SECRET }} | docker login -u ${{ secrets.GITLAB_TOKEN_NAME }} --password-stdin dkr.wallarm.com
-          make smoke-test
+          REGISTRY_TOKEN_NAME: ${{ secrets.GITLAB_TOKEN_NAME }}
+          REGISTRY_TOKEN_SECRET: ${{ secrets.GITLAB_TOKEN_SECRET }}
+        run: make smoke-test
 
   azure:
     name: Azure test
     runs-on: self-hosted-1cpu
     needs:
       - changes
-    if: needs.changes.outputs.helm == 'true' || ${{ inputs.run_tests }}
+    if: (needs.changes.outputs.helm == 'true') || ${{ inputs.run_all_tests }} || ${{ inputs.run_azure_test }}
     strategy:
       fail-fast: false
       matrix:
@@ -91,104 +122,157 @@ jobs:
         uses: hashicorp/vault-action@8fa61e909919a3f94952e9e07ace6b5a1114440b # v2.4.3
         id: secrets
         with:
-          exportEnv: false
+          exportEnv: true
           url: ${{ secrets.VAULT_URL }}
           role: ${{ secrets.VAULT_ROLE }}
           method: kubernetes
           secrets: |
-            kv-gitlab-ci/data/github/oob-ebpf/azure subscription_id | ARM_SUBSCRIPTION_ID; 
-            kv-gitlab-ci/data/github/oob-ebpf/azure client_id | ARM_CLIENT_ID;       
-            kv-gitlab-ci/data/github/oob-ebpf/azure client_secret | ARM_CLIENT_SECRET;   
-            kv-gitlab-ci/data/github/oob-ebpf/azure tenant_id | ARM_TENANT_ID;
+            kv-gitlab-ci/data/github/oob-ebpf/azure subscription_id | ARM_SUBSCRIPTION_ID;
+            kv-gitlab-ci/data/github/oob-ebpf/azure client_id | ARM_CLIENT_ID;
+            kv-gitlab-ci/data/github/oob-ebpf/azure client_secret | ARM_CLIENT_SECRET;
+            kv-gitlab-ci/data/github/oob-ebpf/azure tenant_id | ARM_TENANT_ID;  
+            kv-gitlab-ci/data/github/oob-ebpf/azure tf_backend_resource_group | TF_BACKEND_RESOURCE_GROUP;
+            kv-gitlab-ci/data/github/oob-ebpf/azure tf_backend_storage_account | TF_BACKEND_STORAGE_ACCOUNT;
+            kv-gitlab-ci/data/github/oob-ebpf/azure tf_backend_container | TF_BACKEND_CONTAINER;
             kv-gitlab-ci/data/github/oob-ebpf api_token | WALLARM_API_TOKEN;
             kv-gitlab-ci/data/github/oob-ebpf user_uuid | WALLARM_USER_UUID;
             kv-gitlab-ci/data/github/oob-ebpf user_secret | WALLARM_USER_SECRET;
             kv-gitlab-ci/data/github/shared/smoke-tests-registry-creds token_name | REGISTRY_TOKEN_NAME;
             kv-gitlab-ci/data/github/shared/smoke-tests-registry-creds token_secret | REGISTRY_TOKEN_SECRET;
 
-      - name: Create cluster
-        id: create_cluster
-        env:
-          ARM_SUBSCRIPTION_ID: ${{ steps.secrets.outputs.ARM_SUBSCRIPTION_ID }}
-          ARM_TENANT_ID: ${{ steps.secrets.outputs.ARM_TENANT_ID }}
-          ARM_CLIENT_ID: ${{ steps.secrets.outputs.ARM_CLIENT_ID }}
-          ARM_CLIENT_SECRET: ${{ steps.secrets.outputs.ARM_CLIENT_SECRET }}
+      - name: Prepare config
         run: |
-          TF_DIR="${GITHUB_WORKSPACE}/test/cloud/azure"
-          TF_STATE_KEY="oob-ebpf-v${{ matrix.version }}-run-${GITHUB_RUN_NUMBER}.tfstate"
+          TF_DIR="${GITHUB_WORKSPACE}/test/cloud/azure"          
           TF_ARGS="-var kube_version=${{ matrix.version }} \
                    -var github_run_number=${GITHUB_RUN_NUMBER} \
                    -var github_run_id=${GITHUB_RUN_ID} \
                    --auto-approve"
           
-          cd ${TF_DIR}
-          terraform init -backend-config="key=${TF_STATE_KEY}"
+          TF_BACKEND_KEY="oob-ebpf-v${{ matrix.version }}-run-${GITHUB_RUN_NUMBER}"
+          TF_BACKEND_CONFIG="-backend-config=${GITHUB_WORKSPACE}/backend.hcl"
+          
+          cat <<EOF > backend.hcl
+          resource_group_name  = "${TF_BACKEND_RESOURCE_GROUP}"
+          storage_account_name = "${TF_BACKEND_STORAGE_ACCOUNT}"
+          container_name       = "${TF_BACKEND_CONTAINER}"
+          key                  = "${TF_BACKEND_KEY}"
+          EOF
+          
+          echo "TF_DIR=${TF_DIR}" >> ${GITHUB_ENV}
+          echo "TF_ARGS=${TF_ARGS}" >> ${GITHUB_ENV}
+          echo "TF_BACKEND_KEY=${TF_BACKEND_KEY}" >> ${GITHUB_ENV}
+          echo "TF_BACKEND_CONFIG=${TF_BACKEND_CONFIG}" >> ${GITHUB_ENV}
+
+      - name: Create cluster
+        id: create_cluster
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init ${TF_BACKEND_CONFIG}
           terraform apply ${TF_ARGS}
           
+          echo "Getting Kubeconfig ..."
           mkdir $(dirname ${KUBECONFIG})
           terraform output -raw kube_config > ${KUBECONFIG}
-          
-          echo "tf_dir=${TF_DIR}" >> ${GITHUB_OUTPUT}
-          echo "tf_args=${TF_ARGS}" >> ${GITHUB_OUTPUT}
-          echo "tf_state_key=${TF_STATE_KEY}" >> ${GITHUB_OUTPUT}
 
-      - name: Install chart
-        env:
-          WALLARM_API_TOKEN: ${{ steps.secrets.outputs.WALLARM_API_TOKEN }}
+      - name: Install Helm chart
         run: make helm-install
 
       - name: Run smoke tests
-        env:
-          WALLARM_CLIENT_ID: 4
-          WALLARM_USER_UUID: ${{ steps.secrets.outputs.WALLARM_USER_UUID }}
-          WALLARM_USER_SECRET: ${{ steps.secrets.outputs.WALLARM_USER_SECRET }}
-          IMAGE_PULL_SECRET_NAME: wallarm-registry-creds
-        run: |
-          unset KUBERNETES_SERVICE_HOST
-          kubectl create secret docker-registry ${IMAGE_PULL_SECRET_NAME} \
-          --docker-server=dkr.wallarm.com \
-          --docker-username=${{ steps.secrets.outputs.REGISTRY_TOKEN_NAME }} \
-          --docker-password=${{ steps.secrets.outputs.REGISTRY_TOKEN_SECRET }} \
-          --docker-email=docker-pull@unexists.unexists
-          
-          make smoke-test
+        run: make smoke-test
 
-      - name: Delete cluster
+      - name: Cleanup
         if: (success() && steps.create_cluster.outcome == 'success') || (failure() && steps.create_cluster.outcome == 'success')
-        env:
-          ARM_SUBSCRIPTION_ID: ${{ steps.secrets.outputs.ARM_SUBSCRIPTION_ID }}
-          ARM_TENANT_ID: ${{ steps.secrets.outputs.ARM_TENANT_ID }}
-          ARM_CLIENT_ID: ${{ steps.secrets.outputs.ARM_CLIENT_ID }}
-          ARM_CLIENT_SECRET: ${{ steps.secrets.outputs.ARM_CLIENT_SECRET }}
+        working-directory: ${{ env.TF_DIR }}
         run: |
-          cd ${{ steps.create_cluster.outputs.tf_dir }}
-          terraform destroy ${{ steps.create_cluster.outputs.tf_args }}
+          terraform destroy ${TF_ARGS}
           
+          echo "Removing Terraform state file from Azure blob storage ..."
           az login --service-principal -u ${ARM_CLIENT_ID} -p ${ARM_CLIENT_SECRET} --tenant ${ARM_TENANT_ID}
           az account set --subscription ${ARM_SUBSCRIPTION_ID}
-          STORAGE_ACCOUNT="tfstate20977"
-          CONNECTION_STRING=$(az storage account show-connection-string -n ${STORAGE_ACCOUNT} | jq -r '.connectionString')
+          CONNECTION_STRING=$(az storage account show-connection-string -n ${TF_BACKEND_STORAGE_ACCOUNT} | jq -r '.connectionString')
           az storage blob delete \
-            --account-name ${STORAGE_ACCOUNT} \
-            --container-name tfstate \
-            --name ${{ steps.create_cluster.outputs.tf_state_key }} \
-            --connection-string ${CONNECTION_STRING} \
-            --verbose
+            --account-name ${TF_BACKEND_STORAGE_ACCOUNT} \
+            --container-name ${TF_BACKEND_CONTAINER} \
+            --name ${TF_BACKEND_KEY} \
+            --connection-string ${CONNECTION_STRING}
 
-  helm-install:
-    name: Helm install
-    runs-on: ubuntu-22.04
+  gcp:
+    name: GCP test
+    runs-on: self-hosted-1cpu
     needs:
       - changes
-    if: needs.changes.outputs.helm == 'true' || ${{ inputs.run_tests }}
+    if: (needs.changes.outputs.helm == 'true') || ${{ inputs.run_all_tests }} || ${{ inputs.run_gcp_test }}
+    env:
+      USE_GKE_GCLOUD_AUTH_PLUGIN: True
+    strategy:
+      fail-fast: false
+      matrix:
+        # TODO include versions 1.23.14-gke.1800 and 1.24.8-gke.2000 when agent will support kernel 5.10
+        version: [1.25.5-gke.1500]
     steps:
       - name: Checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.0.2
 
-      - name: Create cluster
-        run: kind create cluster --kubeconfig ${KUBECONFIG} --image kindest/node:v1.24.7
+      - name: Import secrets
+        uses: hashicorp/vault-action@8fa61e909919a3f94952e9e07ace6b5a1114440b # v2.4.3
+        id: secrets
+        with:
+          exportEnv: true
+          url: ${{ secrets.VAULT_URL }}
+          role: ${{ secrets.VAULT_ROLE }}
+          method: kubernetes
+          secrets: |
+            kv-gitlab-ci/data/github/oob-ebpf/gcp project | GOOGLE_PROJECT;
+            kv-gitlab-ci/data/github/oob-ebpf/gcp impersonate_service_account | GOOGLE_IMPERSONATE_SERVICE_ACCOUNT;
+            kv-gitlab-ci/data/github/oob-ebpf/gcp tf_backend_bucket | TF_BACKEND_BUCKET;
+            kv-gitlab-ci/data/github/oob-ebpf api_token | WALLARM_API_TOKEN;
+            kv-gitlab-ci/data/github/oob-ebpf user_uuid | WALLARM_USER_UUID;
+            kv-gitlab-ci/data/github/oob-ebpf user_secret | WALLARM_USER_SECRET;
+            kv-gitlab-ci/data/github/shared/smoke-tests-registry-creds token_name | REGISTRY_TOKEN_NAME;
+            kv-gitlab-ci/data/github/shared/smoke-tests-registry-creds token_secret | REGISTRY_TOKEN_SECRET;
 
-      - name: Run chart tests
-        env:
-          WALLARM_API_TOKEN: ${{ secrets.WALLARM_API_TOKEN }}
-        run: make helm-test
+      - name: Prepare config
+        run: |
+          KUBE_VERSION_SHORT=$(echo ${{ matrix.version }} | cut -d'-' -f 1)
+
+          TF_DIR="${GITHUB_WORKSPACE}/test/cloud/gcp"
+          TF_BACKEND_PREFIX="oob-ebpf-v${KUBE_VERSION_SHORT}-run-${GITHUB_RUN_NUMBER}"
+          TF_BACKEND_CONFIG="-backend-config=bucket=${TF_BACKEND_BUCKET} \
+                             -backend-config=prefix=${TF_BACKEND_PREFIX}"
+
+          TF_ARGS="-var kube_version=${{ matrix.version }} \
+                   -var github_run_number=${GITHUB_RUN_NUMBER} \
+                   -var github_run_id=${GITHUB_RUN_ID} \
+                   --auto-approve"
+
+          echo "TF_DIR=${TF_DIR}" >> ${GITHUB_ENV}
+          echo "TF_ARGS=${TF_ARGS}" >> ${GITHUB_ENV}
+          echo "TF_BACKEND_PREFIX=${TF_BACKEND_PREFIX}" >> ${GITHUB_ENV}
+          echo "TF_BACKEND_CONFIG=${TF_BACKEND_CONFIG}" >> ${GITHUB_ENV}
+
+      - name: Create cluster
+        id: create_cluster
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init ${TF_BACKEND_CONFIG}
+          terraform apply ${TF_ARGS}
+
+          echo "Getting Kubeconfig ..."
+          gcloud config set project ${GOOGLE_PROJECT} --verbosity=error
+          gcloud config set auth/impersonate_service_account ${GOOGLE_IMPERSONATE_SERVICE_ACCOUNT}
+          gcloud container clusters get-credentials $(terraform output -raw name) --zone $(terraform output -raw zone)
+
+      - name: Install Helm chart
+        run: make helm-install
+
+      - name: Run smoke tests
+        run: make smoke-test
+
+      - name: Cleanup
+        if: (success() && steps.create_cluster.outcome == 'success') || (failure() && steps.create_cluster.outcome == 'success')
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform destroy ${TF_ARGS}
+
+          echo "Removing Terraform state file from GCS bucket ..."
+          gcloud storage rm gs://${TF_BACKEND_BUCKET}/${TF_BACKEND_PREFIX}/ --recursive --verbosity=error

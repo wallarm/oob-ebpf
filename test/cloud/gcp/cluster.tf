@@ -2,13 +2,13 @@ locals {
   region  = "europe-west2"
   zone    = "europe-west2-a"
   version = replace(split("-", var.kube_version)[0], ".", "-")
-  name    = "${var.name_prefix}-v${local.version}-run-${var.github_run_number}"
+  os      = lower(split("_", var.image_type)[0])
+  name    = "${var.name_prefix}-v${local.version}-${local.os}-run-${var.github_run_number}"
 
   tags = {
     Environment = "github-ci"
     Workflow    = "CI"
     Repository  = "oob-ebpf"
-    RunID       = var.github_run_id
     RunNumber   = var.github_run_number
   }
 }
@@ -51,5 +51,6 @@ resource "google_container_cluster" "main" {
     oauth_scopes = [
       "https://www.googleapis.com/auth/cloud-platform"
     ]
+    image_type = var.image_type
   }
 }

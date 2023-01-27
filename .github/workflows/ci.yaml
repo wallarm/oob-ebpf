@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       run_all_tests:
-        description: 'Force tests to run all tests'
+        description: 'Run all tests'
         required: false
         type: boolean
       run_helm_test:
@@ -19,11 +19,11 @@ on:
         required: false
         type: boolean
       run_azure_test:
-        description: 'Run Azure test to run all'
+        description: 'Run Azure test'
         required: false
         type: boolean
       run_gcp_test:
-        description: 'Force GCP test to run all'
+        description: 'Force GCP test'
         required: false
         type: boolean
 
@@ -209,6 +209,8 @@ jobs:
       matrix:
         # TODO include versions 1.23.14-gke.1800 and 1.24.8-gke.2000 when agent will support kernel 5.10
         version: [1.25.5-gke.1500]
+        # TODO include COS_CONTAINERD when agent will run on COS with kernel 5.15.65
+        image_type: [UBUNTU_CONTAINERD]
     steps:
       - name: Checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.0.2
@@ -233,16 +235,18 @@ jobs:
 
       - name: Prepare config
         run: |
-          KUBE_VERSION_SHORT=$(echo ${{ matrix.version }} | cut -d'-' -f 1)
-
+          KUBE_VERSION=$(echo ${{ matrix.version }} | cut -d'-' -f 1)
+          OS_NAME=$(echo ${{ matrix.image_type }} | cut -d'_' -f 1 | awk '{print tolower($0)}')
+          echo "OS_NAME: ${OS_NAME}"
+          
           TF_DIR="${GITHUB_WORKSPACE}/test/cloud/gcp"
-          TF_BACKEND_PREFIX="oob-ebpf-v${KUBE_VERSION_SHORT}-run-${GITHUB_RUN_NUMBER}"
+          TF_BACKEND_PREFIX="oob-ebpf-v${KUBE_VERSION}-${OS_NAME}-run-${GITHUB_RUN_NUMBER}"
           TF_BACKEND_CONFIG="-backend-config=bucket=${TF_BACKEND_BUCKET} \
                              -backend-config=prefix=${TF_BACKEND_PREFIX}"
 
           TF_ARGS="-var kube_version=${{ matrix.version }} \
+                   -var image_type=${{ matrix.image_type }} \
                    -var github_run_number=${GITHUB_RUN_NUMBER} \
-                   -var github_run_id=${GITHUB_RUN_ID} \
                    --auto-approve"
 
           echo "TF_DIR=${TF_DIR}" >> ${GITHUB_ENV}

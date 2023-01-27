@@ -1,13 +1,15 @@
 variable "name_prefix" {
-  default = "github-ci-oob-ebpf"
+  default = "ci-oob-ebpf"
 }
 
 variable "node_count" {
   default = 1
 }
 
-variable "kube_version" {}
+variable "image_type" {
+  description = "Worker node image type: COS_CONTAINERD or UBUNTU_CONTAINERD"
+}
 
-variable "github_run_id" {}
+variable "kube_version" {}
 
 variable "github_run_number" {}

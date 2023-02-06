@@ -23,7 +23,7 @@ on:
         required: false
         type: boolean
       run_gcp_test:
-        description: 'Force GCP test'
+        description: 'Run GCP test'
         required: false
         type: boolean
 
@@ -41,7 +41,7 @@ jobs:
       pull-requests: read
     runs-on: ubuntu-latest
     outputs:
-      helm: ${{ steps.filter.outputs.helm}}
+      helm: ${{ steps.filter.outputs.helm }}
     steps:
       - name: Checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.0.2
@@ -60,7 +60,9 @@ jobs:
     runs-on: ubuntu-22.04
     needs:
       - changes
-    if: (needs.changes.outputs.helm == 'true') || ${{ inputs.run_all_tests }} || ${{ inputs.run_helm_test }}
+    if: |
+      (needs.changes.outputs.helm == 'true' && github.event_name== 'pull_request') ||
+      ((github.event.inputs.run_all_tests == 'true' || github.event.inputs.run_helm_test == 'true') && github.event_name== 'workflow_dispatch')
     steps:
       - name: Checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.0.2
@@ -78,7 +80,9 @@ jobs:
     runs-on: ubuntu-22.04
     needs:
       - changes
-    if: (needs.changes.outputs.helm == 'true') || ${{ inputs.run_all_tests }} || ${{ inputs.run_kind_test }}
+    if: | 
+      (needs.changes.outputs.helm == 'true' && github.event_name== 'pull_request') ||
+      ((github.event.inputs.run_all_tests == 'true' || github.event.inputs.run_kind_test == 'true') && github.event_name== 'workflow_dispatch')
     strategy:
       matrix:
         k8s: [v1.23.13, v1.24.7, v1.25.3, v1.26.0]
@@ -108,7 +112,9 @@ jobs:
     runs-on: self-hosted-1cpu
     needs:
       - changes
-    if: (needs.changes.outputs.helm == 'true') || ${{ inputs.run_all_tests }} || ${{ inputs.run_azure_test }}
+    if: |
+      (needs.changes.outputs.helm == 'true' && github.event_name== 'pull_request') ||
+      ((github.event.inputs.run_all_tests == 'true' || github.event.inputs.run_azure_test == 'true') && github.event_name== 'workflow_dispatch')
     strategy:
       fail-fast: false
       matrix:
@@ -201,7 +207,9 @@ jobs:
     runs-on: self-hosted-1cpu
     needs:
       - changes
-    if: (needs.changes.outputs.helm == 'true') || ${{ inputs.run_all_tests }} || ${{ inputs.run_gcp_test }}
+    if: |
+      (needs.changes.outputs.helm == 'true' && github.event_name== 'pull_request') ||
+      ((github.event.inputs.run_all_tests == 'true' || github.event.inputs.run_gcp_test == 'true') && github.event_name== 'workflow_dispatch')
     env:
       USE_GKE_GCLOUD_AUTH_PLUGIN: True
     strategy:

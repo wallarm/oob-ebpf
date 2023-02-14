@@ -94,5 +94,7 @@ kubectl run pytest \
 
 kubectl wait --for=condition=Ready pods --all --timeout=60s
 
+trap 'kubectl logs -p ${NODE_POD} -c node' ERR
+
 echo "Run smoke tests ..."
 kubectl exec pytest ${EXEC_ARGS} -- pytest -n "${SMOKE_PYTEST_WORKERS}" "${SMOKE_PYTEST_ARGS}"

@@ -1124,7 +1124,7 @@ agent:
   image:
     registry: "docker.io"
     name: "wallarm/ebpf-agent"
-    tag: "0.3.0"
+    tag: "1.0.0-dev-k510"
     pullPolicy: IfNotPresent
 
   ## Settings for automated rolling updates

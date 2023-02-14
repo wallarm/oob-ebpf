@@ -98,7 +98,7 @@ kubectl wait --for=condition=Ready pods --all --timeout=120s
 set -x
 echo "Delete agent pod ..."
 kubectl delete pod "$(kubectl get pod -l "app.kubernetes.io/component=agent" -o=jsonpath='{.items[0].metadata.name}')" --now || true
-sleep 10
+sleep 20
 kubectl get pod
 
 trap 'kubectl logs ${NODE_POD} -c node' ERR SIGHUP SIGINT

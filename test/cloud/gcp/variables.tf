@@ -3,7 +3,7 @@ variable "name_prefix" {
 }
 
 variable "node_count" {
-  default = 2
+  default = 1
 }
 
 variable "image_type" {

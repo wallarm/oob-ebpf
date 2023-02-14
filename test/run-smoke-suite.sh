@@ -92,7 +92,7 @@ kubectl run pytest \
   --overrides='{"apiVersion": "v1", "spec":{"terminationGracePeriodSeconds": 0, "imagePullSecrets": '"${IMAGE_PULL_SECRETS}"'}}' \
   --command -- sleep infinity
 
-kubectl wait --for=condition=Ready pods --all --timeout=60s
+kubectl wait --for=condition=Ready pods --all --timeout=120s
 
 #TODO Research the issue when agent started before node
 set -x
@@ -101,7 +101,7 @@ kubectl delete pod "$(kubectl get pod -l "app.kubernetes.io/component=agent" -o=
 sleep 10
 kubectl get pod
 
-trap 'kubectl logs -p ${NODE_POD} -c node' ERR SIGHUP SIGINT
+trap 'kubectl logs ${NODE_POD} -c node' ERR SIGHUP SIGINT
 
 echo "Run smoke tests ..."
 kubectl exec pytest ${EXEC_ARGS} -- pytest -n "${SMOKE_PYTEST_WORKERS}" "${SMOKE_PYTEST_ARGS}"

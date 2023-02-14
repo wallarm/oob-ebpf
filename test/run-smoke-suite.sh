@@ -94,6 +94,13 @@ kubectl run pytest \
 
 kubectl wait --for=condition=Ready pods --all --timeout=60s
 
+#TODO Research the issue when agent started before node
+set -x
+echo "Delete agent pod ..."
+kubectl delete pod "$(kubectl get pod -l "app.kubernetes.io/component=agent" -o=jsonpath='{.items[0].metadata.name}')" --now || true
+sleep 10
+kubectl get pod
+
 trap 'kubectl logs -p ${NODE_POD} -c node' ERR SIGHUP SIGINT
 
 echo "Run smoke tests ..."

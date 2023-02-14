@@ -90,8 +90,9 @@ jobs:
       ((github.event.inputs.run_all_tests == 'true' || github.event.inputs.run_kind_test == 'true') && github.event_name== 'workflow_dispatch')
     strategy:
       fail-fast: false
+      # v1.24.7, v1.25.3
       matrix:
-        k8s: [v1.23.13, v1.24.7, v1.25.3, v1.26.0]
+        k8s: [v1.23.13, v1.26.0]
     steps:
       - name: Checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.0.2

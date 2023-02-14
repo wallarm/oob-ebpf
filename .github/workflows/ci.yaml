@@ -288,6 +288,7 @@ jobs:
         if: (success() && steps.create_cluster.outcome == 'success') || (failure() && steps.create_cluster.outcome == 'success')
         working-directory: ${{ env.TF_DIR }}
         run: |
+          sleep 1800
           terraform destroy ${TF_ARGS}
 
           echo "Removing Terraform state file from GCS bucket ..."

@@ -1,20 +1,38 @@
 name: Publish Helm
+
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        type: string
-        required: true
+
+permissions:
+  contents: read
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted-1cpu
     steps:
-      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
-      - name: Publish Helm charts
-        uses: stefanprodan/helm-gh-pages@master
+      - name: Checkout
+        uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
+
+      - name: Import secrets
+        uses: hashicorp/vault-action@8fa61e909919a3f94952e9e07ace6b5a1114440b # v2.4.3
+        id: secrets
         with:
-          token: ${{ secrets.HELM_PUBLISH_TOKEN }}
+          exportEnv: false
+          url: ${{ secrets.VAULT_URL }}
+          role: ${{ secrets.VAULT_ROLE }}
+          method: kubernetes
+          secrets: |
+            kv-gitlab-ci/data/github/shared/github_token token | GITHUB_TOKEN
+
+      - name: Extract chart and app versions
+        run: |
+          echo "CHART_VERSION=$(yq -r '.version' helm/Chart.yaml)" >> $GITHUB_ENV
+          echo "APP_VERSION=$(yq -r '.appVersion' helm/Chart.yaml)" >> $GITHUB_ENV
+
+      - name: Publish
+        uses: stefanprodan/helm-gh-pages@0ad2bb377311d61ac04ad9eb6f252fb68e207260 # master
+        with:
+          token: ${{ steps.secrets.outputs.GITHUB_TOKEN }}
           charts_dir: .
           charts_url: https://charts.wallarm.com
           linting: off
@@ -22,4 +40,5 @@ jobs:
           branch: main
           target_dir: oob-ebpf
           index_dir: .
-          chart_version: "${{ github.event.inputs.version }}"
+          app_version: ${{ env.APP_VERSION }}
+          chart_version: ${{ env.CHART_VERSION }}

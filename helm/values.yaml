@@ -22,7 +22,7 @@ config:
   processing:
     ### Nginx directive 'real_ip_header' http://nginx.org/en/docs/http/ngx_http_realip_module.html#real_ip_header
     ###
-    realIpHeader: X-Forwarded-For
+    realIpHeader: proxy_protocol
 
     ### Nginx directive 'set_real_ip_from' http://nginx.org/en/docs/http/ngx_http_realip_module.html#set_real_ip_from
     ###
@@ -1124,7 +1124,7 @@ agent:
   image:
     registry: "docker.io"
     name: "wallarm/ebpf-agent"
-    tag: "0.1.0"
+    tag: "0.2.0"
     pullPolicy: IfNotPresent
 
   ## Settings for automated rolling updates

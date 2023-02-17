@@ -14,8 +14,8 @@ WALLARM_API_CA_VERIFY="${WALLARM_API_CA_VERIFY:-true}"
 WALLARM_CLIENT_ID="${WALLARM_CLIENT_ID:-4}"
 
 SMOKE_SUITE_IMAGE="${SMOKE_SUITE_IMAGE:-"${REGISTRY_NAME}/tests/smoke-tests:latest"}"
-SMOKE_PYTEST_ARGS=$(echo "${SMOKE_PYTEST_ARGS:---allure-features=MonitoringMode}" | xargs)
-SMOKE_PYTEST_WORKERS="${SMOKE_PYTEST_WORKERS:-1}"
+SMOKE_PYTEST_ARGS=$(echo "${SMOKE_PYTEST_ARGS:--s --dist=no --allure-features=MonitoringMode}" | xargs)
+SMOKE_PYTEST_WORKERS="${SMOKE_PYTEST_WORKERS:-0}"
 SMOKE_HOSTNAME_OLD_NODE="${SMOKE_HOSTNAME_OLD_NODE:-smoke-tests-old-node}"
 
 WORKLOAD_NS="test-oob-ebpf"
@@ -85,6 +85,7 @@ kubectl run pytest \
   --env="USER_UUID=${WALLARM_USER_UUID}" \
   --env="USER_SECRET=${WALLARM_USER_SECRET}" \
   --env="HOSTNAME_OLD_NODE=${SMOKE_HOSTNAME_OLD_NODE}" \
+  --env="LOG_LEVEL=DEBUG" \
   --image="${SMOKE_SUITE_IMAGE}" \
   --image-pull-policy=${IMAGE_PULL_POLICY} \
   --pod-running-timeout=1m0s \

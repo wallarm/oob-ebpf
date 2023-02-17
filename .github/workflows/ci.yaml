@@ -84,6 +84,7 @@ jobs:
       (needs.changes.outputs.helm == 'true' && github.event_name== 'pull_request') ||
       ((github.event.inputs.run_all_tests == 'true' || github.event.inputs.run_kind_test == 'true') && github.event_name== 'workflow_dispatch')
     strategy:
+      fail-fast: false
       matrix:
         k8s: [v1.23.13, v1.24.7, v1.25.3, v1.26.0]
     steps:

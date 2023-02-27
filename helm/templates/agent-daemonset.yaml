@@ -51,8 +51,6 @@ spec:
       {{- with .Values.agent.extraInitContainers }}
       initContainers: {{ . | toYaml | nindent 8 }}
       {{- end }}
-      #TODO Probably not needed for production release
-      hostPID: true
       containers:
       - name: ebpf-agent
         image: {{ include "image" .Values.agent.image }}
@@ -87,6 +85,7 @@ spec:
         volumeMounts:
         - name: hostproc
           mountPath: /tmp/proc
+          readOnly: true
         {{- with .Values.agent.extraVolumeMounts }}
         {{- . | toYaml | nindent 8 }}
         {{- end }}

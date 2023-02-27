@@ -2,8 +2,9 @@ locals {
   region  = "europe-west2"
   zone    = "europe-west2-a"
   version = replace(split("-", var.kube_version)[0], ".", "-")
-  os      = lower(split("_", var.image_type)[0])
+  os      = lower(var.os)
   name    = "${var.name_prefix}-v${local.version}-${local.os}-run-${var.github_run_number}"
+  image_type = local.os == "ubuntu" ? "UBUNTU_CONTAINERD" : "COS_CONTAINERD"
 
   tags = {
     Environment = "github-ci"
@@ -11,6 +12,12 @@ locals {
     Repository  = "oob-ebpf"
     RunNumber   = var.github_run_number
   }
+}
+
+data "google_container_engine_versions" "main" {
+  provider       = google-beta
+  location       = local.zone
+  version_prefix = "${var.kube_version}."
 }
 
 resource "google_compute_network" "main" {
@@ -43,7 +50,7 @@ resource "google_container_cluster" "main" {
   network    = google_compute_network.main.name
   subnetwork = google_compute_subnetwork.main.name
 
-  min_master_version = var.kube_version
+  min_master_version = data.google_container_engine_versions.main.latest_master_version
   initial_node_count = var.node_count
 
   node_config {
@@ -51,6 +58,6 @@ resource "google_container_cluster" "main" {
     oauth_scopes = [
       "https://www.googleapis.com/auth/cloud-platform"
     ]
-    image_type = var.image_type
+    image_type = local.image_type
   }
 }

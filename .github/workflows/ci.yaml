@@ -76,7 +76,7 @@ jobs:
         run: make helm-test
 
   kind:
-    name: Kind test
+    name: Kind
     runs-on: ubuntu-22.04
     needs:
       - changes
@@ -84,15 +84,16 @@ jobs:
       (needs.changes.outputs.helm == 'true' && github.event_name== 'pull_request') ||
       ((github.event.inputs.run_all_tests == 'true' || github.event.inputs.run_kind_test == 'true') && github.event_name== 'workflow_dispatch')
     strategy:
+      fail-fast: true
       matrix:
-        k8s: [v1.23.13, v1.24.7, v1.25.3, v1.26.0]
+        k8s: [1.22.13, 1.23.13, 1.24.7, 1.25.3, 1.26.0]
     steps:
       - name: Checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.0.2
 
       - name: Create cluster
         run: |
-          kind create cluster --kubeconfig ${KUBECONFIG} --image kindest/node:${{ matrix.k8s }}
+          kind create cluster --kubeconfig ${KUBECONFIG} --image kindest/node:v${{ matrix.k8s }}
 
       - name: Install chart
         env:
@@ -108,10 +109,11 @@ jobs:
         run: make smoke-test
 
   azure:
-    name: Azure test
+    name: Azure
     runs-on: self-hosted-1cpu
     needs:
       - changes
+      - kind
     if: |
       (needs.changes.outputs.helm == 'true' && github.event_name== 'pull_request') ||
       ((github.event.inputs.run_all_tests == 'true' || github.event.inputs.run_azure_test == 'true') && github.event_name== 'workflow_dispatch')
@@ -203,10 +205,11 @@ jobs:
             --connection-string ${CONNECTION_STRING}
 
   gcp:
-    name: GCP test
+    name: GCP
     runs-on: self-hosted-1cpu
     needs:
       - changes
+      - kind
     if: |
       (needs.changes.outputs.helm == 'true' && github.event_name== 'pull_request') ||
       ((github.event.inputs.run_all_tests == 'true' || github.event.inputs.run_gcp_test == 'true') && github.event_name== 'workflow_dispatch')
@@ -215,10 +218,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # TODO include versions 1.23.14-gke.1800 and 1.24.8-gke.2000 when agent will support kernel 5.10
-        version: [1.25.5-gke.1500]
-        # TODO include COS_CONTAINERD when agent will run on COS with kernel 5.15.65
-        image_type: [UBUNTU_CONTAINERD]
+        include:
+          - version: 1.26
+            os: Ubuntu
+          - version: 1.26
+            os: COS
+          - version: 1.25
+            os: Ubuntu
+          - version: 1.25
+            os: COS
+          - version: 1.24
+            os: COS
+          - version: 1.23
+            os: COS
+          - version: 1.22
+            os: COS
     steps:
       - name: Checkout
         uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.0.2
@@ -243,17 +257,13 @@ jobs:
 
       - name: Prepare config
         run: |
-          KUBE_VERSION=$(echo ${{ matrix.version }} | cut -d'-' -f 1)
-          OS_NAME=$(echo ${{ matrix.image_type }} | cut -d'_' -f 1 | awk '{print tolower($0)}')
-          echo "OS_NAME: ${OS_NAME}"
-          
           TF_DIR="${GITHUB_WORKSPACE}/test/cloud/gcp"
-          TF_BACKEND_PREFIX="oob-ebpf-v${KUBE_VERSION}-${OS_NAME}-run-${GITHUB_RUN_NUMBER}"
+          TF_BACKEND_PREFIX="oob-ebpf-v${{ matrix.version }}-${{ matrix.os }}-run-${GITHUB_RUN_NUMBER}"
           TF_BACKEND_CONFIG="-backend-config=bucket=${TF_BACKEND_BUCKET} \
                              -backend-config=prefix=${TF_BACKEND_PREFIX}"
 
           TF_ARGS="-var kube_version=${{ matrix.version }} \
-                   -var image_type=${{ matrix.image_type }} \
+                   -var os=${{ matrix.os }} \
                    -var github_run_number=${GITHUB_RUN_NUMBER} \
                    --auto-approve"
 

@@ -60,6 +60,8 @@ spec:
           - "{{ template "processing.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.processing.service.port }}"
           - --proc-path
           - "/tmp/proc"
+          - --max-node-connections
+          - "{{ .Values.config.agent.maxConnections }}"
         env:
         {{- with .Values.agent.extraEnvs }}
         {{- . | toYaml | nindent 8 }}

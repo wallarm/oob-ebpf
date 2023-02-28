@@ -16,6 +16,12 @@ config:
     ### Use SSL to connect to Wallarm API service: `true` or `false`
     ###
     useSSL: true
+  ### Agent unit configuration
+  ###
+  agent:
+    ### Maximum amount of outbound connections which can bee established between each agent and processing unit
+    ###
+    maxConnections: 1024
 
   ### Processing unit configuration
   ###
@@ -1124,7 +1130,7 @@ agent:
   image:
     registry: "docker.io"
     name: "wallarm/ebpf-agent"
-    tag: "0.3.0"
+    tag: "0.4.0"
     pullPolicy: IfNotPresent
 
   ## Settings for automated rolling updates

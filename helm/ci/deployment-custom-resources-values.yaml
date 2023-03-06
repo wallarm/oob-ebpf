@@ -1,4 +1,6 @@
 aggregation:
+  autoscaling:
+    enabled: false
   init:
     resources:
       requests:
@@ -49,6 +51,8 @@ aggregation:
         cpu: 200m
 
 processing:
+  autoscaling:
+    enabled: false
   init:
     resources:
       requests:

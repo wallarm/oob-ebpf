@@ -1,4 +1,8 @@
 processing:
   replicaCount: 2
+  autoscaling:
+    enabled: false
 aggregation:
   replicaCount: 2
+  autoscaling:
+    enabled: false

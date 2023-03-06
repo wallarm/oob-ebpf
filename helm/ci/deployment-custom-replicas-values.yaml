@@ -2,6 +2,8 @@ processing:
   replicaCount: 2
   autoscaling:
     enabled: false
+  node:
+    resources: {}
 aggregation:
   replicaCount: 2
   autoscaling:

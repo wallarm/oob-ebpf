@@ -7,11 +7,11 @@ variable "location" {
 }
 
 variable "node_count" {
-  default = 2
+  default = 1
 }
 
 variable "node_size" {
-  default = "Standard_D2_v2"
+  default = "Standard_D4s_v3"
 }
 
 variable "kube_version" {}

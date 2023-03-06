@@ -7,7 +7,7 @@ variable "node_count" {
 }
 
 variable "node_size" {
-  default = "e2-medium"
+  default = "e2-standard-4"
 }
 
 variable "os" {

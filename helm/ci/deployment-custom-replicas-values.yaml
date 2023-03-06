@@ -3,7 +3,8 @@ processing:
   autoscaling:
     enabled: false
   node:
-    resources: {}
+    resources:
+      requests:
 aggregation:
   replicaCount: 2
   autoscaling:

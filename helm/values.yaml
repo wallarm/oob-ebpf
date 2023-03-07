@@ -17,6 +17,29 @@ config:
     ###
     useSSL: true
 
+  ### Agent unit configuration
+  ###
+  agent:
+    ### Mirroring configuration is based on the network CIDR of source IPs
+    ###
+    mirror:
+      ### List of networks enabled for mirroring
+      ###
+      enabled:
+        - 0.0.0.0/0
+
+      ### List of networks to ignore for mirroring
+      ###
+      ignored:
+        - 127.0.0.0/8
+      #  - 10.0.0.0/8
+      #  - 192.168.0.0/16
+      #  - 172.16.0.0/12
+
+    ### Maximum number of outbound connections which can bee established between each agent and processing unit
+    ###
+    maxConnections: 1024
+
   ### Processing unit configuration
   ###
   processing:
@@ -1124,7 +1147,7 @@ agent:
   image:
     registry: "docker.io"
     name: "wallarm/ebpf-agent"
-    tag: "0.3.0"
+    tag: "0.5.0"
     pullPolicy: IfNotPresent
 
   ## Settings for automated rolling updates

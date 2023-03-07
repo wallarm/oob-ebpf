@@ -64,6 +64,7 @@ helm-template:
 
 helm-install:
 	$(HELM_CMD) upgrade --install oob-ebpf ./helm $(HELM_ARGS) --wait
+	sleep 5
 	$(KUBECTL_CMD) wait --for=condition=Ready pods --all --timeout=90s
 
 helm-uninstall:

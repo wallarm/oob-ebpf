@@ -1,4 +1,11 @@
 processing:
   replicaCount: 2
+  autoscaling:
+    enabled: false
+  node:
+    resources:
+      requests:
 aggregation:
   replicaCount: 2
+  autoscaling:
+    enabled: false

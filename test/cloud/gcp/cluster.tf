@@ -59,5 +59,6 @@ resource "google_container_cluster" "main" {
       "https://www.googleapis.com/auth/cloud-platform"
     ]
     image_type = local.image_type
+    machine_type = var.node_size
   }
 }

@@ -6,6 +6,10 @@ variable "node_count" {
   default = 1
 }
 
+variable "node_size" {
+  default = "e2-standard-4"
+}
+
 variable "os" {
   description = "COS or Ubuntu"
 }

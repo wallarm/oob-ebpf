@@ -49,7 +49,7 @@ resource "azurerm_kubernetes_cluster" "aks" {
   default_node_pool {
     name       = "defaultpool"
     os_sku     = "Ubuntu"
-    vm_size    = "Standard_D2_v2"
+    vm_size    = var.node_size
     node_count = var.node_count
 
     enable_auto_scaling = false

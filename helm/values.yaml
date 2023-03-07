@@ -17,6 +17,29 @@ config:
     ###
     useSSL: true
 
+  ### Agent unit configuration
+  ###
+  agent:
+    ### Mirroring configuration is based on the network CIDR of source IPs
+    ###
+    mirror:
+      ### List of networks enabled for mirroring
+      ###
+      enabled:
+        - 0.0.0.0/0
+
+      ### List of networks to ignore for mirroring
+      ###
+      ignored:
+        - 127.0.0.0/8
+      #  - 10.0.0.0/8
+      #  - 192.168.0.0/16
+      #  - 172.16.0.0/12
+
+    ### Maximum number of outbound connections which can bee established between each agent and processing unit
+    ###
+    maxConnections: 1024
+
   ### Processing unit configuration
   ###
   processing:
@@ -47,7 +70,7 @@ config:
     ### The allocated memory size in GB for Tarantool in-memory storage. Detailed recommendations are provided
     ### here: https://docs.wallarm.com/admin-en/configuration-guides/allocate-resources-for-waf-node/
     ###
-    tarantoolMemory: 0.5
+    tarantoolMemory: 0.8
 
 ## Array of private container registry credentials
 ## https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
@@ -101,7 +124,7 @@ processing:
   ## Affinity and anti-affinity settings of this Pod
   ## https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
   ##
-  ## Prefered podAntiAffinity will be applied if no one affinity configured
+  ## Preferred podAntiAffinity will be applied if no one affinity configured
   ##
   affinity: {}
   # podAntiAffinity:
@@ -173,13 +196,13 @@ processing:
     ## The number of resources required for the main container
     ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
     ##
-    resources: {}
+    resources:
+      requests:
+       cpu: 50m
+       memory: 64Mi
     # limits:
     #   cpu: 250m
     #   memory: 300Mi
-    # requests:
-    #   cpu: 50m
-    #   memory: 150Mi
 
     ### Liveness probe for the container. Disabled by default
     ###
@@ -227,11 +250,11 @@ processing:
     ## The number of resources required for the main container
     ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
     ##
-    resources: {}
-    # requests:
-    #   memory: 1Gi
-    #   cpu: 500m
-    # limits:
+    resources:
+      requests:
+        memory: 0.5Gi
+        cpu: 500m
+    #   limits:
     #   memory: 1Gi
     #   cpu: 1000m
 
@@ -241,7 +264,7 @@ processing:
       httpGet:
         path: /healthcheck
         port: metrics
-      initialDelaySeconds: 30
+      initialDelaySeconds: 5
       periodSeconds: 15
       timeoutSeconds: 3
       failureThreshold: 3
@@ -253,7 +276,7 @@ processing:
       httpGet:
         path: /healthcheck
         port: metrics
-      initialDelaySeconds: 30
+      initialDelaySeconds: 5
       periodSeconds: 15
       timeoutSeconds: 3
       failureThreshold: 3
@@ -315,13 +338,13 @@ processing:
     ## The number of resources required for the main container
     ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
     ##
-    resources: {}
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
     # limits:
     #   cpu: 250m
     #   memory: 300Mi
-    # requests:
-    #   cpu: 50m
-    #   memory: 150Mi
 
     ### Liveness probe for the container. Disabled by default
     ###
@@ -367,13 +390,13 @@ processing:
     ## The number of resources required for the main container
     ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
     ##
-    resources: {}
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
     # limits:
     #   cpu: 250m
     #   memory: 300Mi
-    # requests:
-    #   cpu: 50m
-    #   memory: 150Mi
 
     ### Liveness probe for the container. Disabled by default
     ###
@@ -419,13 +442,13 @@ processing:
     ## The number of resources required for the main container
     ## https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
     ##
-    resources: {}
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
     # limits:
     #   cpu: 250m
     #   memory: 300Mi
-    # requests:
-    #   cpu: 50m
-    #   memory: 150Mi
 
     ### Liveness probe for the container. Disabled by default
     ###
@@ -515,7 +538,7 @@ processing:
   ## https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
   ##
   autoscaling:
-    enabled: false
+    enabled: true
 
     ## Scaling thresholds, min and max
     ##
@@ -525,8 +548,8 @@ processing:
     ## Target average values of the metric across all relevant pods, represented
     ## as a percentage of the requested value of the resource for the pods.
     ##
-    targetCPUUtilizationPercentage: 60
-    targetMemoryUtilizationPercentage: 85
+    targetCPUUtilizationPercentage: 65
+    targetMemoryUtilizationPercentage: 75
 
   ## Additional containers for this pods
   ##
@@ -601,7 +624,7 @@ aggregation:
   ## Affinity and anti-affinity settings of this Pod
   ## https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
   ##
-  ## Prefered podAntiAffinity will be applied if no one affinity configured
+  ## Preferred podAntiAffinity will be applied if no one affinity configured
   ##
   affinity: {}
   # podAntiAffinity:
@@ -818,7 +841,7 @@ aggregation:
     livenessProbe:
       tcpSocket:
         port: tarantool
-      initialDelaySeconds: 10
+      initialDelaySeconds: 5
       periodSeconds: 15
       timeoutSeconds: 3
       failureThreshold: 3
@@ -829,7 +852,7 @@ aggregation:
     readinessProbe:
       tcpSocket:
         port: tarantool
-      initialDelaySeconds: 10
+      initialDelaySeconds: 5
       periodSeconds: 15
       timeoutSeconds: 3
       failureThreshold: 3
@@ -1124,7 +1147,7 @@ agent:
   image:
     registry: "docker.io"
     name: "wallarm/ebpf-agent"
-    tag: "0.3.0"
+    tag: "0.5.0"
     pullPolicy: IfNotPresent
 
   ## Settings for automated rolling updates

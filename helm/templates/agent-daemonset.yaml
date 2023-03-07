@@ -27,6 +27,7 @@ spec:
         {{- . | toYaml | nindent 8 }}
         {{- end }}
     spec:
+      hostPID: true
       {{- if .Values.agent.serviceAccount.create }}
       serviceAccountName: {{ template "agent.serviceAccountName" . }}
       {{- else }}
@@ -60,6 +61,16 @@ spec:
           - "{{ template "processing.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.processing.service.port }}"
           - --proc-path
           - "/tmp/proc"
+          - --max-node-connections
+          - "{{ .Values.config.agent.maxConnections }}"
+          {{- with .Values.config.agent.mirror.enabled }}
+          - --mirror-src-mask
+          {{ . | toYaml | nindent 10 }}
+          {{- end }}
+          {{- range .Values.config.agent.mirror.ignored }}
+          - --ignore-src-mask
+          - {{ . }}
+          {{- end }}
         env:
         {{- with .Values.agent.extraEnvs }}
         {{- . | toYaml | nindent 8 }}

@@ -131,7 +131,7 @@ spec:
         {{- else }}
         {{ include "wallarm-oob.serviceSecurityContext" . | nindent 10 }}
         {{- end }}
-        {{- with .Values.processing.resources }}
+        {{- with .Values.processing.node.resources }}
         resources: {{ . | toYaml | nindent 10 }}
         {{- end }}
         volumeMounts:
